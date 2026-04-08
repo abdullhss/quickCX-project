@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { signinService } from "@/services/authServices/loginService";
+import { signupService } from "@/services/authServices/signupService";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,6 +15,7 @@ import { Mail, Lock, User, MessageSquare, Sparkles, Shield, Zap, ArrowRight, Che
 import { z } from "zod";
 import { LanguageThemeToggle } from "@/components/LanguageThemeToggle";
 import { cn } from "@/lib/utils";
+
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -65,15 +68,13 @@ const Auth = () => {
     }
 
     setIsSubmitting(true);
-    const { error } = await signIn(loginEmail, loginPassword);
+     const { data, error } = await signinService({ email: loginEmail, password: loginPassword });
     setIsSubmitting(false);
 
     if (error) {
-      if (error.message.includes("Invalid login credentials")) {
-        toast.error(t("auth.invalidCredentials"));
-      } else {
+      
         toast.error(error.message);
-      }
+  
     } else {
       toast.success(t("auth.welcomeBack") + "!");
     }
@@ -99,15 +100,17 @@ const Auth = () => {
     }
 
     setIsSubmitting(true);
-    const { error } = await signUp(signupEmail, signupPassword, signupName);
+  
+
+ const { data, error } = await signupService({
+  fullName: signupName,
+  email: signupEmail,
+  password: signupPassword,
+});
     setIsSubmitting(false);
 
     if (error) {
-      if (error.message.includes("already registered")) {
-        toast.error(t("auth.alreadyRegistered"));
-      } else {
-        toast.error(error.message);
-      }
+      toast.error(error.message);
     } else {
       toast.success(t("auth.accountCreated"));
     }

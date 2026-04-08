@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAppSelector } from "@/store/hooks";
+import { selectIsApiAuthenticated } from "@/store/authSlice";
 import { MessageSquare } from "lucide-react";
 
 interface ProtectedRouteProps {
@@ -11,16 +13,24 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({ children, requireOnboarding = true }: ProtectedRouteProps) => {
   const navigate = useNavigate();
   const { user, profile, loading } = useAuth();
+  const isApiAuth = useAppSelector(selectIsApiAuthenticated);
 
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        navigate("/auth");
-      } else if (requireOnboarding && profile && !profile.onboarding_completed) {
+    if (loading) return;
+
+    if (!user && !isApiAuth) {
+      navigate("/auth");
+      return;
+    }
+
+    if (requireOnboarding) {
+      if (profile && !profile.onboarding_completed) {
+        navigate("/onboarding");
+      } else if (!profile && isApiAuth && !user) {
         navigate("/onboarding");
       }
     }
-  }, [user, profile, loading, navigate, requireOnboarding]);
+  }, [user, profile, loading, navigate, requireOnboarding, isApiAuth]);
 
   if (loading) {
     return (
@@ -32,12 +42,17 @@ export const ProtectedRoute = ({ children, requireOnboarding = true }: Protected
     );
   }
 
-  if (!user) {
+  if (!user && !isApiAuth) {
     return null;
   }
 
-  if (requireOnboarding && profile && !profile.onboarding_completed) {
-    return null;
+  if (requireOnboarding) {
+    if (profile && !profile.onboarding_completed) {
+      return null;
+    }
+    if (!profile && isApiAuth && !user) {
+      return null;
+    }
   }
 
   return <>{children}</>;

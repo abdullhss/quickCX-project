@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
+import { clearAuthSession } from "@/lib/authStorage";
+import { store } from "@/store";
+import { clearAuth } from "@/store/authSlice";
 
 interface Profile {
   id: string;
@@ -115,6 +116,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    clearAuthSession();
+    store.dispatch(clearAuth());
     setProfile(null);
   };
 

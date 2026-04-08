@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setAuth, selectIsApiAuthenticated } from "@/store/authSlice";
+import { saveAuthSession } from "@/lib/authStorage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signinService } from "@/services/authServices/loginService";
@@ -28,10 +31,28 @@ const signupSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
+type SigninResponseData = {
+  AccessToken: string;
+  refreshToken: {
+    Email: string;
+    TokenString: string;
+    ExpireAt: string;
+  };
+};
+
+type ApiEnvelope<T> = {
+  Succeeded?: boolean;
+  StatusCode?: number;
+  Data?: T;
+  Message?: string;
+};
+
 const Auth = () => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { t } = useTranslation();
-  const { user, profile, signIn, signUp, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
+  const isApiAuth = useAppSelector(selectIsApiAuthenticated);
   const [activeTab, setActiveTab] = useState("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -44,14 +65,22 @@ const Auth = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (user && !loading) {
+    if (loading) return;
+
+    if (user) {
+      if (profile?.onboarding_completed) {
+        navigate("/");
+      } else {
+        navigate("/onboarding");
+      }
+    } else if (isApiAuth) {
       if (profile?.onboarding_completed) {
         navigate("/");
       } else {
         navigate("/onboarding");
       }
     }
-  }, [user, profile, loading, navigate]);
+  }, [user, profile, loading, navigate, isApiAuth]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,15 +97,27 @@ const Auth = () => {
     }
 
     setIsSubmitting(true);
-     const { data, error } = await signinService({ email: loginEmail, password: loginPassword });
+    const { data, error } = await signinService({ email: loginEmail, password: loginPassword });
     setIsSubmitting(false);
 
     if (error) {
-      
-        toast.error(error.message);
-  
-    } else {
+      toast.error(error.message);
+      return;
+    }
+
+    const envelope = data as ApiEnvelope<SigninResponseData> | undefined;
+    const payload = envelope?.Data;
+
+    if (envelope?.Succeeded && payload?.AccessToken && payload?.refreshToken) {
+      const session = {
+        accessToken: payload.AccessToken,
+        refreshToken: payload.refreshToken,
+      };
+      dispatch(setAuth(session));
+      saveAuthSession(session);
       toast.success(t("auth.welcomeBack") + "!");
+    } else {
+      toast.error(envelope?.Message ?? t("auth.signIn") + " failed");
     }
   };
 
@@ -102,17 +143,27 @@ const Auth = () => {
     setIsSubmitting(true);
   
 
- const { data, error } = await signupService({
-  fullName: signupName,
-  email: signupEmail,
-  password: signupPassword,
-});
+    const { data, error } = await signupService({
+      fullName: signupName,
+      email: signupEmail,
+      password: signupPassword,
+    });
     setIsSubmitting(false);
 
     if (error) {
       toast.error(error.message);
-    } else {
+      return;
+    }
+
+    const envelope = data as ApiEnvelope<unknown> | undefined;
+    if (envelope?.Succeeded) {
       toast.success(t("auth.accountCreated"));
+      setLoginEmail(signupEmail);
+      setLoginPassword("");
+      setActiveTab("login");
+      setErrors({});
+    } else {
+      toast.error(envelope?.Message ?? "Signup failed");
     }
   };
 

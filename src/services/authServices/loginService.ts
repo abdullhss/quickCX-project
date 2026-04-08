@@ -12,9 +12,12 @@ type ApiError = {
 
 export const signinService = async ({ email, password }: SigninPayload) => {
   try {
-    const response = await api.post("/api/v1/auth/signin", {
-      email,
-      password,
+    const body = new URLSearchParams();
+    body.set("email", email);
+    body.set("password", password);
+
+    const response = await api.post("/api/v1/auth/signin", body.toString(), {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
 
     console.log("Signin response:", response.status, response.data);

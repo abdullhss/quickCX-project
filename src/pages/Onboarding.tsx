@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAppSelector } from "@/store/hooks";
+import { selectIsApiAuthenticated } from "@/store/authSlice";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +30,7 @@ const Onboarding = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const { user, profile, updateProfile, loading } = useAuth();
+  const isApiAuth = useAppSelector(selectIsApiAuthenticated);
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isRTL = i18n.language === "ar";
@@ -60,12 +63,12 @@ const Onboarding = () => {
   const [teamSize, setTeamSize] = useState("");
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !isApiAuth) {
       navigate("/auth");
     } else if (!loading && profile?.onboarding_completed) {
       navigate("/");
     }
-  }, [user, profile, loading, navigate]);
+  }, [user, profile, loading, navigate, isApiAuth]);
 
   const handleNext = () => {
     if (currentStep < steps.length) {

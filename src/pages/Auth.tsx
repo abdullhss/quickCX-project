@@ -15,6 +15,8 @@ import { Mail, Lock, User, MessageSquare, Sparkles, Shield, Zap, ArrowRight, Che
 import { z } from "zod";
 import { LanguageThemeToggle } from "@/components/LanguageThemeToggle";
 import { cn } from "@/lib/utils";
+import { useDispatch } from "react-redux";
+import { setUser } from "@/store/authSlice";
 
 
 const loginSchema = z.object({
@@ -52,7 +54,7 @@ const Auth = () => {
       }
     }
   }, [user, profile, loading, navigate]);
-
+const dispatch = useDispatch();
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -78,6 +80,12 @@ const Auth = () => {
     } else {
       toast.success(t("auth.welcomeBack") + "!");
     }
+  
+   dispatch(setUser({
+      fullName: data.fullName,
+      email: data.email,
+      token: data.access_token,
+    }));
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -113,7 +121,17 @@ const Auth = () => {
       toast.error(error.message);
     } else {
       toast.success(t("auth.accountCreated"));
+
     }
+
+      if (data && !error) {
+    // Save user in Redux
+    dispatch(setUser({
+      fullName: data.fullName,
+      email: data.email,
+      token: data.access_token,
+    }));
+  }
   };
 
   if (loading) {

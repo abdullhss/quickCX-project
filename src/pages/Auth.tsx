@@ -18,6 +18,7 @@ import { Mail, Lock, User, MessageSquare, Sparkles, Shield, Zap, ArrowRight, Che
 import { z } from "zod";
 import { LanguageThemeToggle } from "@/components/LanguageThemeToggle";
 import { cn } from "@/lib/utils";
+import { skipOnboarding } from "@/config/features";
 
 
 const loginSchema = z.object({
@@ -68,13 +69,13 @@ const Auth = () => {
     if (loading) return;
 
     if (user) {
-      if (profile?.onboarding_completed) {
+      if (skipOnboarding || profile?.onboarding_completed) {
         navigate("/");
       } else {
         navigate("/onboarding");
       }
     } else if (isApiAuth) {
-      if (profile?.onboarding_completed) {
+      if (skipOnboarding || profile?.onboarding_completed) {
         navigate("/");
       } else {
         navigate("/onboarding");

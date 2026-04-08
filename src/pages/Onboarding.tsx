@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LanguageThemeToggle } from "@/components/LanguageThemeToggle";
+import { skipOnboarding } from "@/config/features";
 
 const Onboarding = () => {
   const navigate = useNavigate();
@@ -65,7 +66,7 @@ const Onboarding = () => {
   useEffect(() => {
     if (!loading && !user && !isApiAuth) {
       navigate("/auth");
-    } else if (!loading && profile?.onboarding_completed) {
+    } else if (!loading && (skipOnboarding || profile?.onboarding_completed)) {
       navigate("/");
     }
   }, [user, profile, loading, navigate, isApiAuth]);

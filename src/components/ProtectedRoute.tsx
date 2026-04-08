@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppSelector } from "@/store/hooks";
 import { selectIsApiAuthenticated } from "@/store/authSlice";
+import { skipOnboarding } from "@/config/features";
 import { MessageSquare } from "lucide-react";
 
 interface ProtectedRouteProps {
@@ -14,6 +15,7 @@ export const ProtectedRoute = ({ children, requireOnboarding = true }: Protected
   const navigate = useNavigate();
   const { user, profile, loading } = useAuth();
   const isApiAuth = useAppSelector(selectIsApiAuthenticated);
+  const onboardingRequired = requireOnboarding && !skipOnboarding;
 
   useEffect(() => {
     if (loading) return;
@@ -23,14 +25,14 @@ export const ProtectedRoute = ({ children, requireOnboarding = true }: Protected
       return;
     }
 
-    if (requireOnboarding) {
+    if (onboardingRequired) {
       if (profile && !profile.onboarding_completed) {
         navigate("/onboarding");
       } else if (!profile && isApiAuth && !user) {
         navigate("/onboarding");
       }
     }
-  }, [user, profile, loading, navigate, requireOnboarding, isApiAuth]);
+  }, [user, profile, loading, navigate, onboardingRequired, isApiAuth]);
 
   if (loading) {
     return (
@@ -46,7 +48,7 @@ export const ProtectedRoute = ({ children, requireOnboarding = true }: Protected
     return null;
   }
 
-  if (requireOnboarding) {
+  if (onboardingRequired) {
     if (profile && !profile.onboarding_completed) {
       return null;
     }

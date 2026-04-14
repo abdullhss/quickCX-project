@@ -11,8 +11,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { ChannelConnection } from "@/pages/ChannelSettings";
+import {
+  createEmailChannel,
+  extractChannelIdFromResponse,
+} from "@/services/channel/channelService";
 
 interface EmailSetupDialogProps {
   open: boolean;
@@ -29,22 +34,54 @@ export const EmailSetupDialog = ({
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     emailAddress: "",
+    provider: "",
     imapHost: "",
     imapPort: "",
     smtpHost: "",
     smtpPort: "",
     password: "",
+    imapUseSsl: true,
+    smtpUseSsl: true,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const imapPort = Number.parseInt(formData.imapPort, 10);
+    const smtpPort = Number.parseInt(formData.smtpPort, 10);
+    if (Number.isNaN(imapPort) || Number.isNaN(smtpPort)) {
+      toast.error(t("channels.setup.error"));
+      setIsLoading(false);
+      return;
+    }
+
+    const provider = formData.provider.trim() || "custom";
+
+    const { data, error } = await createEmailChannel({
+      email: formData.emailAddress,
+      password: formData.password,
+      provider,
+      imapServer: formData.imapHost,
+      imapPort,
+      smtpServer: formData.smtpHost,
+      smtpPort,
+      imapUseSsl: formData.imapUseSsl,
+      smtpUseSsl: formData.smtpUseSsl,
+    });
+
+    setIsLoading(false);
+
+    if (error) {
+      toast.error(error.message || t("channels.setup.error"));
+      return;
+    }
+
+    const channelId =
+      extractChannelIdFromResponse(data) ?? crypto.randomUUID();
 
     const newConnection: ChannelConnection = {
-      id: crypto.randomUUID(),
+      id: channelId,
       channel: "email",
       name: formData.emailAddress.split("@")[0],
       identifier: formData.emailAddress,
@@ -53,18 +90,19 @@ export const EmailSetupDialog = ({
     };
 
     onConnect(newConnection);
-    setIsLoading(false);
     onOpenChange(false);
     toast.success(t("channels.setup.success"));
 
-    // Reset form
     setFormData({
       emailAddress: "",
+      provider: "",
       imapHost: "",
       imapPort: "",
       smtpHost: "",
       smtpPort: "",
       password: "",
+      imapUseSsl: true,
+      smtpUseSsl: true,
     });
   };
 
@@ -100,6 +138,18 @@ export const EmailSetupDialog = ({
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="provider">{t("channels.setup.provider")}</Label>
+            <Input
+              id="provider"
+              placeholder={t("channels.setup.providerPlaceholder")}
+              value={formData.provider}
+              onChange={(e) =>
+                setFormData({ ...formData, provider: e.target.value })
+              }
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="imapHost">{t("channels.setup.imapHost")}</Label>
@@ -127,6 +177,19 @@ export const EmailSetupDialog = ({
             </div>
           </div>
 
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="imapUseSsl"
+              checked={formData.imapUseSsl}
+              onCheckedChange={(c) =>
+                setFormData({ ...formData, imapUseSsl: c === true })
+              }
+            />
+            <Label htmlFor="imapUseSsl" className="font-normal cursor-pointer">
+              {t("channels.setup.imapUseSsl")}
+            </Label>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="smtpHost">{t("channels.setup.smtpHost")}</Label>
@@ -152,6 +215,19 @@ export const EmailSetupDialog = ({
                 required
               />
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="smtpUseSsl"
+              checked={formData.smtpUseSsl}
+              onCheckedChange={(c) =>
+                setFormData({ ...formData, smtpUseSsl: c === true })
+              }
+            />
+            <Label htmlFor="smtpUseSsl" className="font-normal cursor-pointer">
+              {t("channels.setup.smtpUseSsl")}
+            </Label>
           </div>
 
           <div className="space-y-2">

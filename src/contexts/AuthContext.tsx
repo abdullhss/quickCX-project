@@ -1,13 +1,13 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
-import { clearAuthSession } from "@/lib/authStorage";
+import { clearAuthSession, loadAuthSession, saveAuthSession } from "@/lib/authStorage";
 import { store } from "@/store";
-import { clearAuth } from "@/store/authSlice";
+import { clearAuth, setAuth } from "@/store/authSlice";
+import { signinService } from "@/services/authServices/loginService";
+import { signupService } from "@/services/authServices/signupService";
 
 interface Profile {
-  id: string;
-  user_id: string;
+  id: string | null;
+  user_id: string | null;
   full_name: string | null;
   avatar_url: string | null;
   company_name: string | null;
@@ -16,9 +16,14 @@ interface Profile {
   onboarding_completed: boolean;
 }
 
+type AuthUser = {
+  id: string;
+  email: string;
+};
+
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: AuthUser | null;
+  session: { access_token: string } | null;
   profile: Profile | null;
   loading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
@@ -28,127 +33,192 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const PROFILE_STORAGE_KEY = "quickcx_profile";
+
+function loadStoredProfile(): Profile | null {
+  try {
+    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as Profile;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredProfile(profile: Profile): void {
+  localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+}
+
+function clearStoredProfile(): void {
+  localStorage.removeItem(PROFILE_STORAGE_KEY);
+}
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<{ access_token: string } | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error fetching profile:", error);
-      return null;
-    }
-    return data as Profile | null;
-  };
-
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    const saved = loadAuthSession();
+    if (!saved?.accessToken || !saved?.refreshToken?.Email) {
+      setLoading(false);
+      return;
+    }
 
-        // Defer profile fetch with setTimeout to avoid deadlock
-        if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id).then(setProfile);
-          }, 0);
-        } else {
-          setProfile(null);
-        }
-      }
-    );
+    const authUser: AuthUser = {
+      id: saved.refreshToken.Email,
+      email: saved.refreshToken.Email,
+    };
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id).then((p) => {
-          setProfile(p);
-          setLoading(false);
-        });
-      } else {
-        setLoading(false);
-      }
-    });
+    const storedProfile = loadStoredProfile();
+    const resolvedProfile: Profile = {
+      id: storedProfile?.id ?? null,
+      user_id: storedProfile?.user_id ?? authUser.id,
+      full_name: storedProfile?.full_name ?? saved.FullName ?? null,
+      avatar_url: storedProfile?.avatar_url ?? null,
+      company_name: storedProfile?.company_name ?? null,
+      job_title: storedProfile?.job_title ?? null,
+      phone: storedProfile?.phone ?? null,
+      onboarding_completed: storedProfile?.onboarding_completed ?? false,
+    };
 
-    return () => subscription.unsubscribe();
+    setSession({ access_token: saved.accessToken });
+    setUser(authUser);
+    setProfile(resolvedProfile);
+    saveStoredProfile(resolvedProfile);
+    setLoading(false);
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName,
-        },
-      },
-    });
-
-    if (error) {
-      return { error };
-    }
-
-    return { error: null };
+    const { error } = await signupService({ email, password, fullName });
+    return { error: error ? new Error(error.message) : null };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    type SigninResponseData = {
+      AccessToken: string;
+      FullName: string;
+      refreshToken: {
+        Email: string;
+        TokenString: string;
+        ExpireAt: string;
+      };
+    };
+    type ApiEnvelope<T> = {
+      Succeeded?: boolean;
+      Data?: T;
+      Message?: string;
+    };
 
-    return { error };
+    const { data, error } = await signinService({ email, password });
+    if (error) return { error: new Error(error.message) };
+
+    const envelope = data as ApiEnvelope<SigninResponseData> | undefined;
+    const payload = envelope?.Data;
+    if (!envelope?.Succeeded || !payload?.AccessToken || !payload.refreshToken) {
+      return { error: new Error(envelope?.Message ?? "Sign in failed") };
+    }
+
+    const nextSession = {
+      FullName: payload.FullName,
+      accessToken: payload.AccessToken,
+      refreshToken: payload.refreshToken,
+    };
+    saveAuthSession(nextSession);
+    store.dispatch(setAuth(nextSession));
+
+    const authUser: AuthUser = {
+      id: payload.refreshToken.Email,
+      email: payload.refreshToken.Email,
+    };
+    const nextProfile: Profile = {
+      id: null,
+      user_id: authUser.id,
+      full_name: payload.FullName ?? null,
+      avatar_url: null,
+      company_name: null,
+      job_title: null,
+      phone: null,
+      onboarding_completed: false,
+    };
+
+    setSession({ access_token: payload.AccessToken });
+    setUser(authUser);
+    setProfile(nextProfile);
+    saveStoredProfile(nextProfile);
+    return { error: null };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
     clearAuthSession();
+    clearStoredProfile();
     store.dispatch(clearAuth());
+    setSession(null);
+    setUser(null);
     setProfile(null);
   };
 
   const updateProfile = async (data: Partial<Profile>) => {
     if (!user) return { error: new Error("No user logged in") };
 
-    const { error } = await supabase
-      .from("profiles")
-      .update(data)
-      .eq("user_id", user.id);
+    const nextProfile: Profile = {
+      id: profile?.id ?? null,
+      user_id: profile?.user_id ?? user.id,
+      full_name: data.full_name ?? profile?.full_name ?? null,
+      avatar_url: data.avatar_url ?? profile?.avatar_url ?? null,
+      company_name: data.company_name ?? profile?.company_name ?? null,
+      job_title: data.job_title ?? profile?.job_title ?? null,
+      phone: data.phone ?? profile?.phone ?? null,
+      onboarding_completed: data.onboarding_completed ?? profile?.onboarding_completed ?? false,
+    };
 
-    if (!error) {
-      setProfile((prev) => prev ? { ...prev, ...data } : null);
+    setProfile(nextProfile);
+    saveStoredProfile(nextProfile);
+
+    const saved = loadAuthSession();
+    if (saved && typeof data.full_name === "string" && data.full_name.trim().length > 0) {
+      const nextSession = {
+        ...saved,
+        FullName: data.full_name,
+      };
+      saveAuthSession(nextSession);
+      store.dispatch(setAuth(nextSession));
+      setSession({ access_token: nextSession.accessToken });
     }
 
-    return { error };
+    return { error: null };
   };
 
+  const value: AuthContextType = {
+    user,
+    session,
+    profile,
+    loading,
+    signUp,
+    signIn,
+    signOut,
+    updateProfile,
+  };
+
+  if (loading) {
+    return (
+      <AuthContext.Provider value={value}>
+        {children}
+      </AuthContext.Provider>
+    );
+  }
+
+  if (!session || !user) {
+    return (
+      <AuthContext.Provider value={value}>
+        {children}
+      </AuthContext.Provider>
+    );
+  }
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        session,
-        profile,
-        loading,
-        signUp,
-        signIn,
-        signOut,
-        updateProfile,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

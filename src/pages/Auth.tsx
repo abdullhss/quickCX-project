@@ -34,6 +34,7 @@ const signupSchema = z.object({
 
 type SigninResponseData = {
   AccessToken: string;
+  FullName: string;
   refreshToken: {
     Email: string;
     TokenString: string;
@@ -111,6 +112,7 @@ const Auth = () => {
 
     if (envelope?.Succeeded && payload?.AccessToken && payload?.refreshToken) {
       const session = {
+        FullName : payload.FullName,
         accessToken: payload.AccessToken,
         refreshToken: payload.refreshToken,
       };

@@ -28,6 +28,17 @@ export type CreateEmailChannelPayload = {
 /** Body for PATCH /api/v1/channel/{channelId} — extend when the API contract is known. */
 export type UpdateChannelPayload = Record<string, unknown>;
 
+/** Best-effort parse of created channel id from common API shapes. */
+export function extractChannelIdFromResponse(data: unknown): string | undefined {
+  if (data == null || typeof data !== "object") return undefined;
+  const o = data as Record<string, unknown>;
+  const candidates = [o.id, o.channelId, o.ChannelId, o.Id];
+  for (const c of candidates) {
+    if (typeof c === "string" || typeof c === "number") return String(c);
+  }
+  return undefined;
+}
+
 function toApiError(err: unknown): ApiError {
   if (err instanceof AxiosError) {
     return {

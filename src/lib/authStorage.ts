@@ -7,6 +7,7 @@ export type StoredRefreshToken = {
 };
 
 export type AuthSession = {
+  FullName: string;
   accessToken: string;
   refreshToken: StoredRefreshToken;
 };

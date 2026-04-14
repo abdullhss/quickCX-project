@@ -7,6 +7,8 @@ import { WhatsAppSetupDialog } from "@/components/channels/WhatsAppSetupDialog";
 import { EmailSetupDialog } from "@/components/channels/EmailSetupDialog";
 import { LanguageThemeToggle } from "@/components/LanguageThemeToggle";
 import { MessageCircle, Mail, CheckCircle2, Clock, Activity } from "lucide-react";
+import { toast } from "sonner";
+import { deleteChannel } from "@/services/channel/channelService";
 
 export interface ChannelConnection {
   id: string;
@@ -33,8 +35,14 @@ const ChannelSettings = () => {
     setConnections(prev => [...prev, connection]);
   };
 
-  const handleRemoveConnection = (id: string) => {
-    setConnections(prev => prev.filter(c => c.id !== id));
+  const handleRemoveConnection = async (id: string) => {
+    const { error } = await deleteChannel(id);
+    if (error) {
+      toast.error(error.message || t("channels.setup.deleteError"));
+      return;
+    }
+    setConnections((prev) => prev.filter((c) => c.id !== id));
+    toast.success(t("channels.setup.deleteSuccess"));
   };
 
   const whatsappConnections = getConnectionsByChannel("whatsapp");

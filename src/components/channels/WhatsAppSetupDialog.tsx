@@ -21,16 +21,20 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { MessageCircle, Smartphone, Key, CheckCircle2, ArrowRight, Loader2 } from "lucide-react";
 import { ChannelConnection } from "@/pages/ChannelSettings";
 import { toast } from "sonner";
+import {
+  createWhatsAppChannel,
+  extractChannelIdFromResponse,
+} from "@/services/channel/channelService";
 
 const whatsappSchema = z.object({
-  businessName: z.string().min(2, "Business name is required"),
-  phoneNumber: z.string().min(10, "Valid phone number is required"),
-  apiKey: z.string().min(10, "API key is required"),
-  apiSecret: z.string().min(10, "API secret is required"),
+  name: z.string().min(2, "Name is required"),
+  phoneNumberId: z.string().min(1, "Phone number ID is required"),
+  whatsAppBusinessAccountId: z.string().min(1, "WhatsApp Business Account ID is required"),
+  accessToken: z.string().min(10, "Access token is required"),
 });
 
 type WhatsAppFormValues = z.infer<typeof whatsappSchema>;
@@ -53,44 +57,65 @@ export const WhatsAppSetupDialog = ({
   const form = useForm<WhatsAppFormValues>({
     resolver: zodResolver(whatsappSchema),
     defaultValues: {
-      businessName: "",
-      phoneNumber: "",
-      apiKey: "",
-      apiSecret: "",
+      name: "",
+      phoneNumberId: "",
+      whatsAppBusinessAccountId: "",
+      accessToken: "",
     },
   });
 
+  const resetAndClose = () => {
+    setStep(1);
+    form.reset();
+    onOpenChange(false);
+  };
+
   const onSubmit = async (values: WhatsAppFormValues) => {
     setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
+    const { data, error } = await createWhatsAppChannel({
+      type: 1,
+      name: values.name,
+      phoneNumberId: values.phoneNumberId,
+      whatsAppBusinessAccountId: values.whatsAppBusinessAccountId,
+      accessToken: values.accessToken,
+    });
+
+    setIsLoading(false);
+
+    if (error) {
+      toast.error(error.message || t("channels.setup.error"));
+      return;
+    }
+
+    const channelId =
+      extractChannelIdFromResponse(data) ?? `whatsapp-${Date.now()}`;
+
     const newConnection: ChannelConnection = {
-      id: `whatsapp-${Date.now()}`,
+      id: channelId,
       channel: "whatsapp",
-      name: values.businessName,
-      identifier: values.phoneNumber,
+      name: values.name,
+      identifier: values.phoneNumberId,
       status: "connected",
       connectedAt: new Date().toISOString(),
     };
-    
+
     onConnect(newConnection);
-    setIsLoading(false);
-    setStep(1);
-    form.reset();
-    onOpenChange(false);
+    resetAndClose();
     toast.success(t("channels.whatsapp.connectSuccess"));
   };
 
-  const handleClose = () => {
-    setStep(1);
-    form.reset();
-    onOpenChange(false);
-  };
-
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) {
+          setStep(1);
+          form.reset();
+        }
+        onOpenChange(next);
+      }}
+    >
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
@@ -139,15 +164,15 @@ export const WhatsAppSetupDialog = ({
                     {t("channels.whatsapp.step1Description")}
                   </p>
                 </div>
-                
+
                 <FormField
                   control={form.control}
-                  name="businessName"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("channels.whatsapp.businessName")}</FormLabel>
+                      <FormLabel>{t("channels.whatsapp.channelName")}</FormLabel>
                       <FormControl>
-                        <Input placeholder={t("channels.whatsapp.businessNamePlaceholder")} {...field} />
+                        <Input placeholder={t("channels.whatsapp.channelNamePlaceholder")} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -156,14 +181,14 @@ export const WhatsAppSetupDialog = ({
 
                 <FormField
                   control={form.control}
-                  name="phoneNumber"
+                  name="phoneNumberId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("channels.whatsapp.phoneNumber")}</FormLabel>
+                      <FormLabel>{t("channels.whatsapp.phoneNumberId")}</FormLabel>
                       <FormControl>
-                        <Input placeholder="+1 (555) 000-0000" {...field} />
+                        <Input placeholder="123456789012345" {...field} />
                       </FormControl>
-                      <FormDescription>{t("channels.whatsapp.phoneNumberHint")}</FormDescription>
+                      <FormDescription>{t("channels.whatsapp.phoneNumberIdHint")}</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -190,12 +215,12 @@ export const WhatsAppSetupDialog = ({
 
                 <FormField
                   control={form.control}
-                  name="apiKey"
+                  name="whatsAppBusinessAccountId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("channels.whatsapp.apiKey")}</FormLabel>
+                      <FormLabel>{t("channels.whatsapp.wabaId")}</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="sk_live_..." {...field} />
+                        <Input placeholder={t("channels.whatsapp.wabaIdPlaceholder")} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -204,12 +229,12 @@ export const WhatsAppSetupDialog = ({
 
                 <FormField
                   control={form.control}
-                  name="apiSecret"
+                  name="accessToken"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t("channels.whatsapp.apiSecret")}</FormLabel>
+                      <FormLabel>{t("channels.whatsapp.accessToken")}</FormLabel>
                       <FormControl>
-                        <Input type="password" placeholder="whsec_..." {...field} />
+                        <Input type="password" placeholder={t("channels.whatsapp.accessTokenPlaceholder")} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -242,12 +267,12 @@ export const WhatsAppSetupDialog = ({
 
                 <div className="bg-muted/50 rounded-lg p-4 space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("channels.whatsapp.businessName")}:</span>
-                    <span className="font-medium">{form.watch("businessName") || "-"}</span>
+                    <span className="text-muted-foreground">{t("channels.whatsapp.channelName")}:</span>
+                    <span className="font-medium">{form.watch("name") || "-"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t("channels.whatsapp.phoneNumber")}:</span>
-                    <span className="font-medium">{form.watch("phoneNumber") || "-"}</span>
+                    <span className="text-muted-foreground">{t("channels.whatsapp.phoneNumberId")}:</span>
+                    <span className="font-medium">{form.watch("phoneNumberId") || "-"}</span>
                   </div>
                 </div>
 
@@ -263,7 +288,7 @@ export const WhatsAppSetupDialog = ({
                     {isLoading ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin ltr:mr-2 rtl:ml-2" />
-                        {t("common.connecting")}
+                        {t("channels.setup.connecting")}
                       </>
                     ) : (
                       t("channels.connect")

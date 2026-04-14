@@ -27,7 +27,9 @@ interface SidebarNavProps {
 
 export const SidebarNav = ({ activeTab, onTabChange }: SidebarNavProps) => {
   const { t, i18n } = useTranslation();
-  const { profile, signOut } = useAuth();
+  const { profile, signOut , loading } = useAuth();
+  console.log(profile);
+  
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();

@@ -132,7 +132,24 @@
     "whatsapp": {
       "description": "اربط حساب واتساب للأعمال لاستقبال وإرسال الرسائل",
       "helpTitle": "واتساب للأعمال",
-      "helpText": "يتطلب حساب API لواتساب للأعمال"
+      "helpText": "يتطلب حساب API لواتساب للأعمال",
+      "setupTitle": "ربط واتساب للأعمال",
+      "setupDescription": "أدخل بيانات Meta Cloud API",
+      "step1Title": "تفاصيل القناة",
+      "step1Description": "اسم العرض ومعرف رقم الهاتف من Meta",
+      "channelName": "اسم القناة",
+      "channelNamePlaceholder": "مثال: الدعم",
+      "phoneNumberId": "معرف رقم الهاتف",
+      "phoneNumberIdHint": "من Meta Business Suite → WhatsApp → إعداد API",
+      "step2Title": "حساب الأعمال",
+      "step2Description": "معرف حساب واتساب للأعمال ورمز الوصول",
+      "wabaId": "معرف حساب واتساب للأعمال",
+      "wabaIdPlaceholder": "المعرف الرقمي من Meta",
+      "accessToken": "رمز الوصول",
+      "accessTokenPlaceholder": "رمز دائم أو طويل الأجل",
+      "step3Title": "مراجعة",
+      "step3Description": "تأكيد البيانات والربط",
+      "connectSuccess": "تم ربط واتساب بنجاح"
     },
     "email": {
       "description": "اربط حساب بريدك الإلكتروني لاستقبال رسائل العملاء والرد عليها",
@@ -173,7 +190,13 @@
       "connectWhatsApp": "ربط واتساب",
       "connectEmail": "ربط البريد",
       "success": "تم ربط القناة بنجاح!",
-      "error": "فشل ربط القناة. يرجى التحقق من البيانات."
+      "error": "فشل ربط القناة. يرجى التحقق من البيانات.",
+      "provider": "المزوّد",
+      "providerPlaceholder": "مثل gmail أو outlook أو custom",
+      "imapUseSsl": "استخدام SSL لـ IMAP",
+      "smtpUseSsl": "استخدام SSL لـ SMTP",
+      "deleteSuccess": "تمت إزالة القناة",
+      "deleteError": "تعذر إزالة القناة"
     }
   },
   "settings": {

@@ -1,8 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
-import { supabase } from "@/integrations/supabase/client";
-import { clearAuthSession, loadAuthSession } from "@/lib/authStorage";
+import { clearAuthSession, loadAuthSession, saveAuthSession } from "@/lib/authStorage";
 import { store } from "@/store";
-import { clearAuth } from "@/store/authSlice";
+import { clearAuth, setAuth } from "@/store/authSlice";
 
 const baseURL = import.meta.env.VITE_API_URL ?? "";
 
@@ -20,20 +19,53 @@ type RequestConfigWithRetry = InternalAxiosRequestConfig & { _retry?: boolean };
 let refreshPromise: Promise<string | null> | null = null;
 
 async function refreshAccessToken(): Promise<string | null> {
-  const { data, error } = await supabase.auth.refreshSession();
-  if (error || !data.session) {
+  const currentSession = loadAuthSession();
+  if (!currentSession?.refreshToken) {
     return null;
   }
-  return data.session.access_token;
+
+  try {
+    const response = await axios.post(
+      `${baseURL}/api/v1/auth/refresh-token`,
+      currentSession.refreshToken,
+      {
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Language: "EN",
+        },
+      }
+    );
+
+    const envelope = response.data as {
+      Succeeded?: boolean;
+      Data?: {
+        AccessToken?: string;
+        accessToken?: string;
+        FullName?: string;
+      };
+    };
+
+    const accessToken = envelope?.Data?.AccessToken ?? envelope?.Data?.accessToken;
+    if (!envelope?.Succeeded || !accessToken) {
+      return null;
+    }
+
+    const nextSession = {
+      ...currentSession,
+      FullName: envelope.Data?.FullName ?? currentSession.FullName,
+      accessToken,
+    };
+    saveAuthSession(nextSession);
+    store.dispatch(setAuth(nextSession));
+    return accessToken;
+  } catch {
+    return null;
+  }
 }
 
-api.interceptors.request.use(async (config) => {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const bearer =
-    session?.access_token ?? loadAuthSession()?.accessToken ?? null;
+api.interceptors.request.use((config) => {
+  const bearer = loadAuthSession()?.accessToken ?? null;
 
   if (bearer) {
     config.headers.Authorization = `Bearer ${bearer}`;
@@ -62,7 +94,6 @@ api.interceptors.response.use(
     const accessToken = await refreshPromise;
 
     if (!accessToken) {
-      await supabase.auth.signOut();
       clearAuthSession();
       store.dispatch(clearAuth());
       return Promise.reject(error);

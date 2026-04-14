@@ -132,7 +132,24 @@
     "whatsapp": {
       "description": "Connect your WhatsApp Business account to receive and send messages",
       "helpTitle": "WhatsApp Business",
-      "helpText": "Requires a WhatsApp Business API account"
+      "helpText": "Requires a WhatsApp Business API account",
+      "setupTitle": "Connect WhatsApp Business",
+      "setupDescription": "Enter your Meta Cloud API credentials",
+      "step1Title": "Channel details",
+      "step1Description": "Display name and Phone number ID from Meta",
+      "channelName": "Channel name",
+      "channelNamePlaceholder": "e.g. Support",
+      "phoneNumberId": "Phone number ID",
+      "phoneNumberIdHint": "From Meta Business Suite → WhatsApp → API setup",
+      "step2Title": "Business account",
+      "step2Description": "WhatsApp Business Account ID and access token",
+      "wabaId": "WhatsApp Business Account ID",
+      "wabaIdPlaceholder": "Numeric ID from Meta",
+      "accessToken": "Access token",
+      "accessTokenPlaceholder": "Permanent or long-lived token",
+      "step3Title": "Review",
+      "step3Description": "Confirm your details and connect",
+      "connectSuccess": "WhatsApp connected successfully"
     },
     "email": {
       "description": "Connect your email account to receive and respond to customer emails",
@@ -173,7 +190,13 @@
       "connectWhatsApp": "Connect WhatsApp",
       "connectEmail": "Connect Email",
       "success": "Channel connected successfully!",
-      "error": "Failed to connect channel. Please check your credentials."
+      "error": "Failed to connect channel. Please check your credentials.",
+      "provider": "Provider",
+      "providerPlaceholder": "e.g. gmail, outlook, custom",
+      "imapUseSsl": "Use SSL for IMAP",
+      "smtpUseSsl": "Use SSL for SMTP",
+      "deleteSuccess": "Channel removed",
+      "deleteError": "Could not remove channel"
     }
   },
   "settings": {

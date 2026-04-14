@@ -89,6 +89,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     saveStoredProfile(resolvedProfile);
     setLoading(false);
   }, []);
+  useEffect(() => {
+  if (user && !profile) {
+    const storedProfile = loadStoredProfile();
+    if (storedProfile) {
+      setProfile(storedProfile);
+    }
+  }
+}, [user]);
 
   const signUp = async (email: string, password: string, fullName: string) => {
     const { error } = await signupService({ email, password, fullName });
@@ -110,7 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       Data?: T;
       Message?: string;
     };
-
+    setLoading(true);
     const { data, error } = await signinService({ email, password });
     if (error) return { error: new Error(error.message) };
 
@@ -147,6 +155,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(authUser);
     setProfile(nextProfile);
     saveStoredProfile(nextProfile);
+    setLoading(false);
     return { error: null };
   };
 

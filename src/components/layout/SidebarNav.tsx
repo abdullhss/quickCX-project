@@ -66,7 +66,7 @@ export const SidebarNav = ({ activeTab, onTabChange }: SidebarNavProps) => {
       .toUpperCase()
       .slice(0, 2);
   };
-
+  if (loading) return null;
   return (
     <div className="w-16 lg:w-64 h-full flex flex-col bg-sidebar border-e border-sidebar-border shadow-lg">
       {/* Logo */}

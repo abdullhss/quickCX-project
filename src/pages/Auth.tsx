@@ -53,7 +53,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { t } = useTranslation();
-  const { user, profile, loading } = useAuth();
+  const { user, signIn , profile, loading } = useAuth();
   const isApiAuth = useAppSelector(selectIsApiAuthenticated);
   const [activeTab, setActiveTab] = useState("login");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -99,7 +99,9 @@ const Auth = () => {
     }
 
     setIsSubmitting(true);
-    const { data, error } = await signinService({ email: loginEmail, password: loginPassword });
+
+    const { error } = await signIn(loginEmail, loginPassword);
+
     setIsSubmitting(false);
 
     if (error) {
@@ -107,21 +109,7 @@ const Auth = () => {
       return;
     }
 
-    const envelope = data as ApiEnvelope<SigninResponseData> | undefined;
-    const payload = envelope?.Data;
-
-    if (envelope?.Succeeded && payload?.AccessToken && payload?.refreshToken) {
-      const session = {
-        FullName : payload.FullName,
-        accessToken: payload.AccessToken,
-        refreshToken: payload.refreshToken,
-      };
-      dispatch(setAuth(session));
-      saveAuthSession(session);
-      toast.success(t("auth.welcomeBack") + "!");
-    } else {
-      toast.error(envelope?.Message ?? t("auth.signIn") + " failed");
-    }
+    toast.success(t("auth.welcomeBack") + "!");
   };
 
   const handleSignup = async (e: React.FormEvent) => {

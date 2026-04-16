@@ -26,6 +26,11 @@ import {
 import { cn } from "@/lib/utils";
 import { LanguageThemeToggle } from "@/components/LanguageThemeToggle";
 import { skipOnboarding } from "@/config/features";
+import {
+  addUserToRoleService,
+  createOrganizationService,
+  setOrganizationSizeService,
+} from "@/services/onBoarding/onBordingService";
 
 const Onboarding = () => {
   const navigate = useNavigate();
@@ -63,15 +68,115 @@ const Onboarding = () => {
   const [jobTitle, setJobTitle] = useState("");
   const [teamSize, setTeamSize] = useState("");
 
-  useEffect(() => {
-    if (!loading && !user && !isApiAuth) {
-      navigate("/auth");
-    } else if (!loading && (skipOnboarding || profile?.onboarding_completed)) {
-      navigate("/");
-    }
-  }, [user, profile, loading, navigate, isApiAuth]);
+  const [didCreateOrganization, setDidCreateOrganization] = useState(false);
+  const [didAssignRole, setDidAssignRole] = useState(false);
+  const [didSetTeamSize, setDidSetTeamSize] = useState(false);
 
-  const handleNext = () => {
+  // useEffect(() => {
+  //   if (!loading && !user && !isApiAuth) {
+  //     navigate("/auth");
+  //   } else if (!loading && (skipOnboarding || profile?.onboarding_completed)) {
+  //     navigate("/");
+  //   }
+  // }, [user, profile, loading, navigate, isApiAuth]);
+
+  const roleNameFromJobTitle = (title: string): number | null => {
+    const mapping: Record<string, number> = {
+      "Team Lead": 1,
+      "Support Manager": 2,
+      "Customer Success": 3,
+      "Support Agent": 4,
+    };
+    return mapping[title] ?? null;
+  };
+
+  const orgSizeFromTeamSizeValue = (value: string): number | null => {
+    const mapping: Record<string, number> = {
+      "1-5": 1,
+      "6-20": 2,
+      "21-50": 3,
+      "50+": 4,
+    };
+    return mapping[value] ?? null;
+  };
+
+  const canSkipToComplete = companyName.trim().length >= 2 && !!jobTitle && !!teamSize;
+
+  const handleNext = async () => {
+    if (!user) {
+      toast.error("You must be logged in to continue.");
+      return;
+    }
+
+    if (isSubmitting) return;
+
+    // Step 1 -> create organization
+    if (currentStep === 1) {
+      setIsSubmitting(true);
+      const { error } = await createOrganizationService({
+        name: companyName.trim(),
+        creatorUserId: user.id,
+        contactPhone: phone.trim() || undefined,
+      });
+      setIsSubmitting(false);
+
+      if (error) {
+        toast.error(error.message || "Failed to create your organization.");
+        return;
+      }
+
+      setDidCreateOrganization(true);
+      setCurrentStep(2);
+      return;
+    }
+
+    // Step 2 -> assign role
+    if (currentStep === 2) {
+      const roleName = roleNameFromJobTitle(jobTitle);
+      if (roleName == null) {
+        toast.error("Please select your role.");
+        return;
+      }
+
+      setIsSubmitting(true);
+      const { error } = await addUserToRoleService({
+        userId: user.id,
+        roleName,
+      });
+      setIsSubmitting(false);
+
+      if (error) {
+        toast.error(error.message || "Failed to save your role.");
+        return;
+      }
+
+      setDidAssignRole(true);
+      setCurrentStep(3);
+      return;
+    }
+
+    // Step 3 -> set team size
+    if (currentStep === 3) {
+      const size = orgSizeFromTeamSizeValue(teamSize);
+      if (size == null) {
+        toast.error("Please select your team size.");
+        return;
+      }
+
+      setIsSubmitting(true);
+      const { error } = await setOrganizationSizeService({ size });
+      setIsSubmitting(false);
+
+      if (error) {
+        toast.error(error.message || "Failed to save your team size.");
+        return;
+      }
+
+      setDidSetTeamSize(true);
+      setCurrentStep(4);
+      return;
+    }
+
     if (currentStep < steps.length) {
       setCurrentStep((prev) => prev + 1);
     }
@@ -79,12 +184,84 @@ const Onboarding = () => {
 
   const handleBack = () => {
     if (currentStep > 1) {
+      // If user goes back and changes answers, allow re-calling the corresponding endpoints.
+      if (currentStep === 4) setDidSetTeamSize(false);
+      if (currentStep === 3) {
+        setDidSetTeamSize(false);
+        setDidAssignRole(false);
+      }
+      if (currentStep === 2) {
+        setDidAssignRole(false);
+        setDidCreateOrganization(false);
+      }
       setCurrentStep((prev) => prev - 1);
     }
   };
 
   const handleComplete = async () => {
+    if (!user) {
+      toast.error("You must be logged in to continue.");
+      return;
+    }
+
     setIsSubmitting(true);
+
+    // Step 1 API (if not already done via Continue)
+    if (!didCreateOrganization) {
+      if (companyName.trim().length < 2) {
+        setIsSubmitting(false);
+        toast.error("Please enter your company name.");
+        return;
+      }
+
+      const { error } = await createOrganizationService({
+        name: companyName.trim(),
+        creatorUserId: user.id,
+        contactPhone: phone.trim() || undefined,
+      });
+      if (error) {
+        setIsSubmitting(false);
+        toast.error(error.message || "Failed to create your organization.");
+        return;
+      }
+      setDidCreateOrganization(true);
+    }
+
+    // Step 2 API (if not already done via Continue)
+    if (!didAssignRole) {
+      const roleName = roleNameFromJobTitle(jobTitle);
+      if (roleName == null) {
+        setIsSubmitting(false);
+        toast.error("Please select your role.");
+        return;
+      }
+
+      const { error } = await addUserToRoleService({ userId: user.id, roleName });
+      if (error) {
+        setIsSubmitting(false);
+        toast.error(error.message || "Failed to save your role.");
+        return;
+      }
+      setDidAssignRole(true);
+    }
+
+    // Step 3 API (if not already done via Continue)
+    if (!didSetTeamSize) {
+      const size = orgSizeFromTeamSizeValue(teamSize);
+      if (size == null) {
+        setIsSubmitting(false);
+        toast.error("Please select your team size.");
+        return;
+      }
+
+      const { error } = await setOrganizationSizeService({ size });
+      if (error) {
+        setIsSubmitting(false);
+        toast.error(error.message || "Failed to save your team size.");
+        return;
+      }
+      setDidSetTeamSize(true);
+    }
 
     const { error } = await updateProfile({
       company_name: companyName || null,
@@ -344,7 +521,7 @@ const Onboarding = () => {
                   {currentStep < steps.length ? (
                     <Button 
                       onClick={handleNext} 
-                      disabled={!canProceed()}
+                      disabled={!canProceed() || isSubmitting}
                       className="bg-gradient-to-r from-primary to-accent hover:opacity-90"
                     >
                       {t("common.continue")}
@@ -365,7 +542,7 @@ const Onboarding = () => {
             </Card>
 
             {/* Skip Option */}
-            {currentStep < 4 && (
+            {currentStep < 4 && canSkipToComplete && (
               <p className="text-center mt-4">
                 <button
                   onClick={() => setCurrentStep(4)}

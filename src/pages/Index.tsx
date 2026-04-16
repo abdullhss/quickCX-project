@@ -9,6 +9,7 @@ import { Message } from "@/components/inbox/MessageBubble";
 import { Conversation, ConversationStatus } from "@/components/inbox/ConversationItem";
 import { Helmet } from "react-helmet-async";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("inbox");
@@ -16,6 +17,8 @@ const Index = () => {
   const [messages, setMessages] = useState<Record<string, Message[]>>(mockMessages);
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
   const { toast } = useToast();
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
 
   const selectedConversation = conversations.find(
     (c) => c.id === selectedConversationId
@@ -75,6 +78,19 @@ const Index = () => {
         : "This conversation is now open again.",
     });
   }, [toast]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 639px)");
+    const onChange = () => setIsMobile(media.matches);
+    onChange();
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    // On mobile, prefer starting in the list view to avoid cramped 3-panel layout.
+    setMobileView(isMobile ? "list" : "chat");
+  }, [isMobile]);
 
   // Simulate incoming message (real-time)
   useEffect(() => {
@@ -136,6 +152,11 @@ const Index = () => {
     }
   }, [selectedConversationId]);
 
+  const handleSelectConversation = (id: string) => {
+    setSelectedConversationId(id);
+    if (isMobile) setMobileView("chat");
+  };
+
   return (
     <>
       <Helmet>
@@ -155,16 +176,22 @@ const Index = () => {
           {/* Inbox Layout */}
           <div className="flex-1 flex overflow-hidden">
             {/* Conversation List */}
-            <div className="w-80 lg:w-96 flex-shrink-0">
+            <div
+              className={cn(
+                "flex-shrink-0",
+                isMobile ? "w-full" : "w-80 lg:w-96",
+                isMobile && mobileView !== "list" && "hidden"
+              )}
+            >
               <ConversationList
                 conversations={conversations}
                 selectedId={selectedConversationId}
-                onSelectConversation={setSelectedConversationId}
+                onSelectConversation={handleSelectConversation}
               />
             </div>
 
             {/* Chat View */}
-            <div className="flex-1 min-w-0">
+            <div className={cn("flex-1 min-w-0", isMobile && mobileView !== "chat" && "hidden")}>
               {selectedConversation ? (
                 <ChatView
                   customerName={selectedConversation.customerName}
@@ -176,6 +203,7 @@ const Index = () => {
                   status={selectedConversation.status}
                   onSendMessage={handleSendMessage}
                   onStatusChange={(status) => handleStatusChange(selectedConversationId!, status)}
+                  onBack={isMobile ? () => setMobileView("list") : undefined}
                 />
               ) : (
                 <EmptyChatView />
@@ -183,9 +211,7 @@ const Index = () => {
             </div>
 
             {/* Customer Sidebar */}
-            {selectedCustomer && (
-              <CustomerSidebar customer={selectedCustomer} />
-            )}
+            {!isMobile && selectedCustomer && <CustomerSidebar customer={selectedCustomer} />}
           </div>
         </div>
       </div>

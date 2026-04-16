@@ -16,6 +16,7 @@ interface ChatViewProps {
   status: ConversationStatus;
   onSendMessage: (message: string) => void;
   onStatusChange: (status: ConversationStatus) => void;
+  onBack?: () => void;
 }
 
 export const ChatView = ({
@@ -28,6 +29,7 @@ export const ChatView = ({
   status,
   onSendMessage,
   onStatusChange,
+  onBack,
 }: ChatViewProps) => {
   return (
     <div className="flex flex-col h-full bg-background">
@@ -39,6 +41,7 @@ export const ChatView = ({
         lastSeen={lastSeen}
         status={status}
         onStatusChange={onStatusChange}
+        onBack={onBack}
       />
       <MessageThread messages={messages} />
       <MessageInput onSendMessage={onSendMessage} />

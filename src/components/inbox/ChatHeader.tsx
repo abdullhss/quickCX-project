@@ -1,4 +1,4 @@
-import { Phone, Video, Star, Archive, MoreHorizontal, CheckCircle, Circle, ChevronDown } from "lucide-react";
+import { Phone, Video, Star, Archive, MoreHorizontal, CheckCircle, Circle, ChevronDown, ChevronLeft } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ChannelBadge, Channel } from "./ChannelBadge";
@@ -21,6 +21,7 @@ interface ChatHeaderProps {
   lastSeen?: string;
   status: ConversationStatus;
   onStatusChange: (status: ConversationStatus) => void;
+  onBack?: () => void;
 }
 
 export const ChatHeader = ({
@@ -31,6 +32,7 @@ export const ChatHeader = ({
   lastSeen,
   status,
   onStatusChange,
+  onBack,
 }: ChatHeaderProps) => {
   const initials = customerName
     .split(" ")
@@ -40,11 +42,21 @@ export const ChatHeader = ({
     .slice(0, 2);
 
   return (
-    <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card/50 backdrop-blur-sm">
+    <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4 border-b border-border bg-card/50 backdrop-blur-sm">
       {/* Customer Info */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+        {onBack && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="sm:hidden text-muted-foreground hover:text-foreground"
+            onClick={onBack}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+        )}
         <div className="relative">
-          <Avatar className="h-12 w-12 border-2 border-border">
+          <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-border">
             <AvatarImage src={customerAvatar} alt={customerName} />
             <AvatarFallback className="bg-primary/20 text-primary font-semibold">
               {initials}
@@ -54,12 +66,12 @@ export const ChatHeader = ({
             <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-success border-2 border-card" />
           )}
         </div>
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <h3 className="font-semibold text-foreground">{customerName}</h3>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3 mb-1 min-w-0">
+            <h3 className="font-semibold text-foreground truncate">{customerName}</h3>
             <ChannelBadge channel={channel} showLabel />
           </div>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground truncate">
             {isOnline ? (
               <span className="text-success">Online now</span>
             ) : (
@@ -70,7 +82,7 @@ export const ChatHeader = ({
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
         {/* Status Toggle */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -87,12 +99,12 @@ export const ChatHeader = ({
               {status === "open" ? (
                 <>
                   <Circle className="h-3 w-3 fill-success" />
-                  Open
+                  <span className="hidden sm:inline">Open</span>
                 </>
               ) : (
                 <>
                   <CheckCircle className="h-3 w-3" />
-                  Closed
+                  <span className="hidden sm:inline">Closed</span>
                 </>
               )}
               <ChevronDown className="h-3 w-3" />
@@ -116,11 +128,11 @@ export const ChatHeader = ({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="w-px h-6 bg-border mx-1" />
+        <div className="hidden sm:block w-px h-6 bg-border mx-1" />
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-muted-foreground hover:text-foreground">
               <Phone className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
@@ -128,7 +140,7 @@ export const ChatHeader = ({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-muted-foreground hover:text-foreground">
               <Video className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
@@ -136,7 +148,7 @@ export const ChatHeader = ({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-muted-foreground hover:text-foreground">
               <Star className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
@@ -144,7 +156,7 @@ export const ChatHeader = ({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="icon" className="hidden sm:inline-flex text-muted-foreground hover:text-foreground">
               <Archive className="h-4 w-4" />
             </Button>
           </TooltipTrigger>

@@ -56,10 +56,10 @@ const Onboarding = () => {
   ];
 
   const jobTitles = [
-    { value: "Support Agent", label: t("roles.supportAgent"), icon: Headphones },
-    { value: "Team Lead", label: t("roles.teamLead"), icon: Users },
-    { value: "Support Manager", label: t("roles.supportManager"), icon: BarChart3 },
-    { value: "Customer Success", label: t("roles.customerSuccess"), icon: Zap },
+    { value: "SupportAgent", label: t("roles.supportAgent"), icon: Headphones },
+    { value: "TeamLead", label: t("roles.teamLead"), icon: Users },
+    { value: "SupportManager", label: t("roles.supportManager"), icon: BarChart3 },
+    { value: "CustomerSuccess", label: t("roles.customerSuccess"), icon: Zap },
   ];
 
   // Form data
@@ -80,14 +80,9 @@ const Onboarding = () => {
   //   }
   // }, [user, profile, loading, navigate, isApiAuth]);
 
-  const roleNameFromJobTitle = (title: string): number | null => {
-    const mapping: Record<string, number> = {
-      "Team Lead": 1,
-      "Support Manager": 2,
-      "Customer Success": 3,
-      "Support Agent": 4,
-    };
-    return mapping[title] ?? null;
+  const apiRoleFromSelection = (title: string): string | null => {
+    const allowed = new Set(["TeamLead", "SupportManager", "CustomerSuccess", "SupportAgent"]);
+    return allowed.has(title) ? title : null;
   };
 
   const orgSizeFromTeamSizeValue = (value: string): number | null => {
@@ -132,7 +127,7 @@ const Onboarding = () => {
 
     // Step 2 -> assign role
     if (currentStep === 2) {
-      const roleName = roleNameFromJobTitle(jobTitle);
+      const roleName = apiRoleFromSelection(jobTitle);
       if (roleName == null) {
         toast.error("Please select your role.");
         return;
@@ -140,7 +135,6 @@ const Onboarding = () => {
 
       setIsSubmitting(true);
       const { error } = await addUserToRoleService({
-        userId: user.id,
         roleName,
       });
       setIsSubmitting(false);
@@ -229,14 +223,14 @@ const Onboarding = () => {
 
     // Step 2 API (if not already done via Continue)
     if (!didAssignRole) {
-      const roleName = roleNameFromJobTitle(jobTitle);
+      const roleName = apiRoleFromSelection(jobTitle);
       if (roleName == null) {
         setIsSubmitting(false);
         toast.error("Please select your role.");
         return;
       }
 
-      const { error } = await addUserToRoleService({ userId: user.id, roleName });
+      const { error } = await addUserToRoleService({ roleName });
       if (error) {
         setIsSubmitting(false);
         toast.error(error.message || "Failed to save your role.");
@@ -266,7 +260,7 @@ const Onboarding = () => {
     const { error } = await updateProfile({
       company_name: companyName || null,
       phone: phone || null,
-      job_title: jobTitle || null,
+      job_title: (jobTitles.find((j) => j.value === jobTitle)?.label ?? jobTitle) || null,
       onboarding_completed: true,
     });
 

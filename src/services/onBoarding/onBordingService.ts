@@ -37,23 +37,15 @@ export const createOrganizationService = async (payload: CreateOrganizationPaylo
   }
 };
 
-// Add user to role (FormData)
+// Add user to role (JSON body)
 type AddUserToRolePayload = {
-  userId: string;
-  roleName: number;
+  roleName: string;
 };
 
-export const addUserToRoleService = async ({ userId, roleName }: AddUserToRolePayload) => {
+export const addUserToRoleService = async ({ roleName }: AddUserToRolePayload) => {
   try {
-    const formData = new FormData();
-    formData.append("UserId", userId);
-    // Backend expects numeric role mapping (sent as string in FormData)
-    formData.append("RoleName", String(roleName));
-
-    const response = await api.post("/api/v1/role/addusertorole", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
+    const response = await api.post("/api/v1/role/addusertorole", {
+      RoleName: roleName,
     });
 
     console.log("Add user to role response:", response.status, response.data);
@@ -82,7 +74,7 @@ type OrganizationSizePayload = {
 
 export const setOrganizationSizeService = async ({ size }: OrganizationSizePayload) => {
   try {
-    const response = await api.post("/api/v1/organization/size", { size });
+    const response = await api.put("/api/v1/organization/size", { size });
     console.log("Set organization size response:", response.status, response.data);
     return { data: response.data, error: null };
   } catch (err: unknown) {

@@ -48,26 +48,37 @@ export const EmailSetupDialog = ({
     e.preventDefault();
     setIsLoading(true);
 
-    const imapPort = Number.parseInt(formData.imapPort, 10);
-    const smtpPort = Number.parseInt(formData.smtpPort, 10);
-    if (Number.isNaN(imapPort) || Number.isNaN(smtpPort)) {
+    const parseOptionalPort = (
+      raw: string
+    ): number | undefined | "invalid" => {
+      const trimmed = raw.trim();
+      if (trimmed === "") return undefined;
+      const n = Number.parseInt(trimmed, 10);
+      return Number.isNaN(n) ? "invalid" : n;
+    };
+
+    const imapPortResult = parseOptionalPort(formData.imapPort);
+    const smtpPortResult = parseOptionalPort(formData.smtpPort);
+    if (imapPortResult === "invalid" || smtpPortResult === "invalid") {
       toast.error(t("channels.setup.error"));
       setIsLoading(false);
       return;
     }
 
     const provider = formData.provider.trim() || "custom";
+    const imapServer = formData.imapHost.trim();
+    const smtpServer = formData.smtpHost.trim();
 
     const { data, error } = await createEmailChannel({
       email: formData.emailAddress,
       password: formData.password,
       provider,
-      imapServer: formData.imapHost,
-      imapPort,
-      smtpServer: formData.smtpHost,
-      smtpPort,
       imapUseSsl: formData.imapUseSsl,
       smtpUseSsl: formData.smtpUseSsl,
+      ...(imapServer ? { imapServer } : {}),
+      ...(imapPortResult !== undefined ? { imapPort: imapPortResult } : {}),
+      ...(smtpServer ? { smtpServer } : {}),
+      ...(smtpPortResult !== undefined ? { smtpPort: smtpPortResult } : {}),
     });
 
     setIsLoading(false);
@@ -160,7 +171,6 @@ export const EmailSetupDialog = ({
                 onChange={(e) =>
                   setFormData({ ...formData, imapHost: e.target.value })
                 }
-                required
               />
             </div>
             <div className="space-y-2">
@@ -172,7 +182,6 @@ export const EmailSetupDialog = ({
                 onChange={(e) =>
                   setFormData({ ...formData, imapPort: e.target.value })
                 }
-                required
               />
             </div>
           </div>
@@ -200,7 +209,6 @@ export const EmailSetupDialog = ({
                 onChange={(e) =>
                   setFormData({ ...formData, smtpHost: e.target.value })
                 }
-                required
               />
             </div>
             <div className="space-y-2">
@@ -212,7 +220,6 @@ export const EmailSetupDialog = ({
                 onChange={(e) =>
                   setFormData({ ...formData, smtpPort: e.target.value })
                 }
-                required
               />
             </div>
           </div>

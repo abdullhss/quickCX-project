@@ -119,44 +119,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       Message?: string;
     };
     setLoading(true);
-    const { data, error } = await signinService({ email, password });
-    if (error) return { error: new Error(error.message) };
+    try {
+      const { data, error } = await signinService({ email, password });
+      if (error) return { error: new Error(error.message) };
 
-    const envelope = data as ApiEnvelope<SigninResponseData> | undefined;
-    const payload = envelope?.Data;
-    if (!envelope?.Succeeded || !payload?.AccessToken || !payload.refreshToken) {
-      return { error: new Error(envelope?.Message ?? "Sign in failed") };
+      const envelope = data as ApiEnvelope<SigninResponseData> | undefined;
+      const payload = envelope?.Data;
+      if (!envelope?.Succeeded || !payload?.AccessToken || !payload.refreshToken) {
+        return { error: new Error(envelope?.Message ?? "Sign in failed") };
+      }
+
+      const nextSession = {
+        FullName: payload.FullName,
+        accessToken: payload.AccessToken,
+        refreshToken: payload.refreshToken,
+      };
+      saveAuthSession(nextSession);
+      store.dispatch(setAuth(nextSession));
+
+      const authUser: AuthUser = {
+        id: payload.refreshToken.Email,
+        email: payload.refreshToken.Email,
+      };
+      const nextProfile: Profile = {
+        id: null,
+        user_id: authUser.id,
+        full_name: payload.FullName ?? null,
+        avatar_url: null,
+        company_name: null,
+        job_title: null,
+        phone: null,
+        onboarding_completed: false,
+      };
+
+      setSession({ access_token: payload.AccessToken });
+      setUser(authUser);
+      setProfile(nextProfile);
+      saveStoredProfile(nextProfile);
+      return { error: null };
+    } finally {
+      setLoading(false);
     }
-
-    const nextSession = {
-      FullName: payload.FullName,
-      accessToken: payload.AccessToken,
-      refreshToken: payload.refreshToken,
-    };
-    saveAuthSession(nextSession);
-    store.dispatch(setAuth(nextSession));
-
-    const authUser: AuthUser = {
-      id: payload.refreshToken.Email,
-      email: payload.refreshToken.Email,
-    };
-    const nextProfile: Profile = {
-      id: null,
-      user_id: authUser.id,
-      full_name: payload.FullName ?? null,
-      avatar_url: null,
-      company_name: null,
-      job_title: null,
-      phone: null,
-      onboarding_completed: false,
-    };
-
-    setSession({ access_token: payload.AccessToken });
-    setUser(authUser);
-    setProfile(nextProfile);
-    saveStoredProfile(nextProfile);
-    setLoading(false);
-    return { error: null };
   };
 
   const signOut = async () => {

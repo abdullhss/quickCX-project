@@ -17,12 +17,12 @@ export type CreateEmailChannelPayload = {
   email: string;
   password: string;
   provider: string;
-  imapServer: string;
-  imapPort: number;
-  smtpServer: string;
-  smtpPort: number;
   imapUseSsl: boolean;
   smtpUseSsl: boolean;
+  imapServer?: string;
+  imapPort?: number;
+  smtpServer?: string;
+  smtpPort?: number;
 };
 
 /** Body for PATCH /api/v1/channel/{channelId} — extend when the API contract is known. */

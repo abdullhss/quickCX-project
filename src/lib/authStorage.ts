@@ -15,12 +15,19 @@ export type AuthSession = {
   refreshToken?: StoredRefreshToken;
 };
 
+/** Backend: `isOnboardingDone === false` means onboarding is finished; `true` means user must complete the wizard. */
+export function onboardingDoneFromPayload(isOnboardingDone: boolean | undefined): boolean {
+  return !(isOnboardingDone ?? false);
+}
+
 export function loadAuthSession(): AuthSession | null {
   try {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AuthSession;
-    if (!parsed?.accessToken) return null;
+    const email = parsed.email ?? parsed.refreshToken?.Email;
+    const hasToken = !!(parsed.accessToken && String(parsed.accessToken).trim());
+    if (!email && !hasToken) return null;
     return parsed;
   } catch {
     return null;

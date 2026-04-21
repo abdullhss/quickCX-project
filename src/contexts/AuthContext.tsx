@@ -1,5 +1,10 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { clearAuthSession, loadAuthSession, saveAuthSession } from "@/lib/authStorage";
+import {
+  clearAuthSession,
+  loadAuthSession,
+  onboardingDoneFromPayload,
+  saveAuthSession,
+} from "@/lib/authStorage";
 import { store } from "@/store";
 import { clearAuth, setAuth } from "@/store/authSlice";
 import { signinService } from "@/services/authServices/loginService";
@@ -62,7 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const saved = loadAuthSession();
     const userEmail = saved?.email ?? saved?.refreshToken?.Email;
-    if (!saved?.accessToken || !userEmail) {
+    if (!userEmail) {
       setLoading(false);
       return;
     }
@@ -82,10 +87,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       job_title: storedProfile?.job_title ?? null,
       phone: storedProfile?.phone ?? null,
       onboarding_completed:
-        storedProfile?.onboarding_completed ?? saved.isOnboardingDone ?? false,
+        storedProfile?.onboarding_completed ?? onboardingDoneFromPayload(saved.isOnboardingDone),
     };
 
-    setSession({ access_token: saved.accessToken });
+    setSession({ access_token: saved.accessToken ?? "" });
     setUser(authUser);
     setProfile(resolvedProfile);
     saveStoredProfile(resolvedProfile);
@@ -154,7 +159,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         company_name: null,
         job_title: null,
         phone: null,
-        onboarding_completed: payload.IsOnboardingDone ?? false,
+        onboarding_completed: onboardingDoneFromPayload(payload.IsOnboardingDone),
       };
 
       setSession({ access_token: payload.AccessToken });
@@ -194,14 +199,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     saveStoredProfile(nextProfile);
 
     const saved = loadAuthSession();
-    if (saved && typeof data.full_name === "string" && data.full_name.trim().length > 0) {
-      const nextSession = {
-        ...saved,
-        FullName: data.full_name,
-      };
-      saveAuthSession(nextSession);
-      store.dispatch(setAuth(nextSession));
-      setSession({ access_token: nextSession.accessToken });
+    if (saved) {
+      let nextSession = saved;
+      if (typeof data.full_name === "string" && data.full_name.trim().length > 0) {
+        nextSession = { ...nextSession, FullName: data.full_name };
+      }
+      if (typeof data.onboarding_completed === "boolean") {
+        nextSession = {
+          ...nextSession,
+          isOnboardingDone: !data.onboarding_completed,
+        };
+      }
+      if (nextSession !== saved) {
+        saveAuthSession(nextSession);
+        store.dispatch(setAuth(nextSession));
+        setSession({ access_token: nextSession.accessToken ?? "" });
+      }
     }
 
     return { error: null };

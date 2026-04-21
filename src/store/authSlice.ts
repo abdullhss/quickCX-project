@@ -19,7 +19,7 @@ const authSlice = createSlice({
   reducers: {
     setAuth(state, action: PayloadAction<AuthSession>) {
       state.accessToken = action.payload.accessToken;
-      state.refreshToken = action.payload.refreshToken;
+      state.refreshToken = action.payload.refreshToken ?? null;
       state.isAuthenticated = true;
     },
     clearAuth() {

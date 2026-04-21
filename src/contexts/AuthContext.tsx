@@ -61,14 +61,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const saved = loadAuthSession();
-    if (!saved?.accessToken || !saved?.refreshToken?.Email) {
+    const userEmail = saved?.email ?? saved?.refreshToken?.Email;
+    if (!saved?.accessToken || !userEmail) {
       setLoading(false);
       return;
     }
 
     const authUser: AuthUser = {
-      id: saved.refreshToken.Email,
-      email: saved.refreshToken.Email,
+      id: userEmail,
+      email: userEmail,
     };
 
     const storedProfile = loadStoredProfile();
@@ -80,7 +81,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       company_name: storedProfile?.company_name ?? null,
       job_title: storedProfile?.job_title ?? null,
       phone: storedProfile?.phone ?? null,
-      onboarding_completed: storedProfile?.onboarding_completed ?? false,
+      onboarding_completed:
+        storedProfile?.onboarding_completed ?? saved.isOnboardingDone ?? false,
     };
 
     setSession({ access_token: saved.accessToken });
@@ -107,7 +109,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     type SigninResponseData = {
       AccessToken: string;
       FullName: string;
-      refreshToken: {
+      IsOnboardingDone?: boolean;
+      refreshToken?: {
         Email: string;
         TokenString: string;
         ExpireAt: string;
@@ -125,21 +128,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const envelope = data as ApiEnvelope<SigninResponseData> | undefined;
       const payload = envelope?.Data;
-      if (!envelope?.Succeeded || !payload?.AccessToken || !payload.refreshToken) {
+      if (!envelope?.Succeeded || !payload?.AccessToken) {
         return { error: new Error(envelope?.Message ?? "Sign in failed") };
       }
 
       const nextSession = {
         FullName: payload.FullName,
         accessToken: payload.AccessToken,
-        refreshToken: payload.refreshToken,
+        email,
+        isOnboardingDone: payload.IsOnboardingDone,
+        ...(payload.refreshToken ? { refreshToken: payload.refreshToken } : {}),
       };
       saveAuthSession(nextSession);
       store.dispatch(setAuth(nextSession));
 
       const authUser: AuthUser = {
-        id: payload.refreshToken.Email,
-        email: payload.refreshToken.Email,
+        id: email,
+        email,
       };
       const nextProfile: Profile = {
         id: null,
@@ -149,7 +154,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         company_name: null,
         job_title: null,
         phone: null,
-        onboarding_completed: false,
+        onboarding_completed: payload.IsOnboardingDone ?? false,
       };
 
       setSession({ access_token: payload.AccessToken });

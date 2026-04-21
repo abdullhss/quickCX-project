@@ -13,7 +13,7 @@ export const store = configureStore({
       ? {
           auth: {
             accessToken: saved.accessToken,
-            refreshToken: saved.refreshToken,
+            refreshToken: saved.refreshToken ?? null,
             isAuthenticated: true,
           },
         }

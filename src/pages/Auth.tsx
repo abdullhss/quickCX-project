@@ -35,7 +35,8 @@ const signupSchema = z.object({
 type SigninResponseData = {
   AccessToken: string;
   FullName: string;
-  refreshToken: {
+  IsOnboardingDone?: boolean;
+  refreshToken?: {
     Email: string;
     TokenString: string;
     ExpireAt: string;

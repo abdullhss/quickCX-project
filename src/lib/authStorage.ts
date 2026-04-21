@@ -9,7 +9,10 @@ export type StoredRefreshToken = {
 export type AuthSession = {
   FullName: string;
   accessToken: string;
-  refreshToken: StoredRefreshToken;
+  /** From sign-in form when the API does not return a refresh token (cookie-based session). */
+  email?: string;
+  isOnboardingDone?: boolean;
+  refreshToken?: StoredRefreshToken;
 };
 
 export function loadAuthSession(): AuthSession | null {
@@ -17,7 +20,7 @@ export function loadAuthSession(): AuthSession | null {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AuthSession;
-    if (!parsed?.accessToken || !parsed?.refreshToken) return null;
+    if (!parsed?.accessToken) return null;
     return parsed;
   } catch {
     return null;

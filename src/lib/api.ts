@@ -3,10 +3,21 @@ import { clearAuthSession, loadAuthSession, saveAuthSession } from "@/lib/authSt
 import { store } from "@/store";
 import { clearAuth, setAuth } from "@/store/authSlice";
 
-const baseURL = import.meta.env.VITE_API_URL ?? "";
+function normalizeApiBase(raw: unknown): string {
+  if (raw == null || raw === "") return "";
+  return String(raw).trim().replace(/\/+$/, "");
+}
+
+const envApiBase = normalizeApiBase(import.meta.env.VITE_API_URL);
+/**
+ * In development, use same-origin `/api/...` so Vite `server.proxy` forwards to the API.
+ * That avoids browser CORS when `withCredentials` is true (credentials disallow `*` ACAO).
+ */
+const baseURL = import.meta.env.DEV ? "" : envApiBase;
 
 export const api = axios.create({
   baseURL,
+  withCredentials: true,
   headers: {
     Accept: "application/json",
     "Content-Type": "application/json",
@@ -20,15 +31,16 @@ let refreshPromise: Promise<string | null> | null = null;
 
 async function refreshAccessToken(): Promise<string | null> {
   const currentSession = loadAuthSession();
-  if (!currentSession?.refreshToken) {
+  if (!currentSession) {
     return null;
   }
 
   try {
     const response = await axios.post(
-      `${baseURL}/api/v1/auth/refresh-token`,
-      currentSession.refreshToken,
+      `${baseURL}/api/v1/auth/refreshtoken`,
+      undefined,
       {
+        withCredentials: true,
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
@@ -43,6 +55,7 @@ async function refreshAccessToken(): Promise<string | null> {
         AccessToken?: string;
         accessToken?: string;
         FullName?: string;
+        IsOnboardingDone?: boolean;
       };
     };
 
@@ -55,6 +68,9 @@ async function refreshAccessToken(): Promise<string | null> {
       ...currentSession,
       FullName: envelope.Data?.FullName ?? currentSession.FullName,
       accessToken,
+      ...(typeof envelope.Data?.IsOnboardingDone === "boolean"
+        ? { isOnboardingDone: envelope.Data.IsOnboardingDone }
+        : {}),
     };
     saveAuthSession(nextSession);
     store.dispatch(setAuth(nextSession));

@@ -15,9 +15,9 @@ export type AuthSession = {
   refreshToken?: StoredRefreshToken;
 };
 
-/** Backend: `isOnboardingDone === false` means onboarding is finished; `true` means user must complete the wizard. */
+/** Backend `IsOnboardingDone`: `true` = user finished onboarding; `false` = must complete the wizard. */
 export function onboardingDoneFromPayload(isOnboardingDone: boolean | undefined): boolean {
-  return !(isOnboardingDone ?? false);
+  return isOnboardingDone === true;
 }
 
 export function loadAuthSession(): AuthSession | null {

@@ -133,13 +133,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       const envelope = data as ApiEnvelope<SigninResponseData> | undefined;
       const payload = envelope?.Data;
-      if (!envelope?.Succeeded || !payload?.AccessToken) {
+      if (!envelope?.Succeeded || !payload) {
         return { error: new Error(envelope?.Message ?? "Sign in failed") };
       }
 
+      const accessToken =
+        typeof payload.AccessToken === "string" ? payload.AccessToken : "";
+
       const nextSession = {
         FullName: payload.FullName,
-        accessToken: payload.AccessToken,
+        accessToken,
         email,
         isOnboardingDone: payload.IsOnboardingDone,
         ...(payload.refreshToken ? { refreshToken: payload.refreshToken } : {}),
@@ -162,7 +165,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         onboarding_completed: onboardingDoneFromPayload(payload.IsOnboardingDone),
       };
 
-      setSession({ access_token: payload.AccessToken });
+      setSession({ access_token: accessToken });
       setUser(authUser);
       setProfile(nextProfile);
       saveStoredProfile(nextProfile);
@@ -207,7 +210,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (typeof data.onboarding_completed === "boolean") {
         nextSession = {
           ...nextSession,
-          isOnboardingDone: !data.onboarding_completed,
+          isOnboardingDone: data.onboarding_completed,
         };
       }
       if (nextSession !== saved) {

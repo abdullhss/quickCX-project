@@ -10,12 +10,20 @@ import { Conversation, ConversationStatus } from "@/components/inbox/Conversatio
 import { Helmet } from "react-helmet-async";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+  extractConversationsArray,
+  getConversationById,
+  getConversationPage,
+  mapConversationDto,
+  markConversationAsClosed,
+} from "@/services/conversation/conversationService";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("inbox");
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>("1");
   const [messages, setMessages] = useState<Record<string, Message[]>>(mockMessages);
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
+  const [usingApiConversations, setUsingApiConversations] = useState(false);
   const { toast } = useToast();
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
@@ -62,22 +70,80 @@ const Index = () => {
     );
   };
 
-  const handleStatusChange = useCallback((conversationId: string, newStatus: ConversationStatus) => {
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === conversationId
-          ? { ...c, status: newStatus }
-          : c
-      )
-    );
+  const handleStatusChange = useCallback(
+    async (conversationId: string, newStatus: ConversationStatus) => {
+      if (newStatus === "closed" && usingApiConversations) {
+        const { error } = await markConversationAsClosed(conversationId);
+        if (error) {
+          toast({
+            variant: "destructive",
+            title: "Could not close conversation",
+            description: error.message,
+          });
+          return;
+        }
+      }
 
-    toast({
-      title: newStatus === "closed" ? "Conversation closed" : "Conversation reopened",
-      description: newStatus === "closed" 
-        ? "This conversation has been marked as closed." 
-        : "This conversation is now open again.",
-    });
-  }, [toast]);
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, status: newStatus } : c))
+      );
+
+      toast({
+        title: newStatus === "closed" ? "Conversation closed" : "Conversation reopened",
+        description:
+          newStatus === "closed"
+            ? "This conversation has been marked as closed."
+            : "This conversation is now open again.",
+      });
+    },
+    [toast, usingApiConversations]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await getConversationPage({ pageSize: 50 });
+      if (cancelled || error || data == null) return;
+
+      const raw = extractConversationsArray(data);
+      const mapped = raw
+        .map((item) => mapConversationDto(item))
+        .filter((c): c is Conversation => c != null);
+
+      if (cancelled || mapped.length === 0) return;
+
+      setConversations(mapped);
+      setUsingApiConversations(true);
+      setSelectedConversationId((prev) => {
+        if (prev && mapped.some((c) => c.id === prev)) return prev;
+        return mapped[0]?.id ?? null;
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!usingApiConversations || !selectedConversationId) return;
+
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await getConversationById(selectedConversationId);
+      if (cancelled || error || data == null) return;
+      const mapped = mapConversationDto(data);
+      if (!mapped) return;
+
+      setConversations((prev) =>
+        prev.map((c) => (c.id === mapped.id ? { ...c, ...mapped } : c))
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [usingApiConversations, selectedConversationId]);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 639px)");
@@ -92,8 +158,10 @@ const Index = () => {
     setMobileView(isMobile ? "list" : "chat");
   }, [isMobile]);
 
-  // Simulate incoming message (real-time)
+  // Simulate incoming message (real-time) — demo only when not backed by the conversations API
   useEffect(() => {
+    if (usingApiConversations) return;
+
     const simulateIncomingMessage = () => {
       const randomConversation = conversations[Math.floor(Math.random() * conversations.length)];
       
@@ -137,7 +205,7 @@ const Index = () => {
     // Simulate every 30 seconds for demo
     const interval = setInterval(simulateIncomingMessage, 30000);
     return () => clearInterval(interval);
-  }, [conversations, selectedConversationId, toast]);
+  }, [conversations, selectedConversationId, toast, usingApiConversations]);
 
   // Clear unread count when selecting a conversation
   useEffect(() => {
@@ -202,7 +270,7 @@ const Index = () => {
                   messages={currentMessages}
                   status={selectedConversation.status}
                   onSendMessage={handleSendMessage}
-                  onStatusChange={(status) => handleStatusChange(selectedConversationId!, status)}
+                  onStatusChange={(status) => void handleStatusChange(selectedConversationId!, status)}
                   onBack={isMobile ? () => setMobileView("list") : undefined}
                 />
               ) : (

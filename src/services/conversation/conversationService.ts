@@ -67,7 +67,7 @@ export const getConversationPage = async (query: GetConversationQuery = {}) => {
       sortOrder: query.sortOrder ?? "desc",
       includeStatistics: query.includeStatistics ?? false,
     });
-    const response = await api.get("/api/v1/conversation", { params });
+    const response = await api.get("/api/v1/conversations", { params });
     return { data: response.data as unknown, error: null as null };
   } catch (err: unknown) {
     return { data: null, error: toApiError(err) };

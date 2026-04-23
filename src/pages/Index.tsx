@@ -8,14 +8,18 @@ import { mockConversations as initialConversations, mockMessages, mockCustomers 
 import { Message } from "@/components/inbox/MessageBubble";
 import { Conversation, ConversationStatus } from "@/components/inbox/ConversationItem";
 import { Helmet } from "react-helmet-async";
+import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
   extractConversationsArray,
   getConversationById,
-  getConversationPage,
+  getConversations,
+  isConversationsEnvelopeFailed,
   mapConversationDto,
+  mapDetailPayloadToMessages,
   markConversationAsClosed,
+  readApiEnvelopeMessage,
 } from "@/services/conversation/conversationService";
 
 const Index = () => {
@@ -24,6 +28,7 @@ const Index = () => {
   const [messages, setMessages] = useState<Record<string, Message[]>>(mockMessages);
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
   const [usingApiConversations, setUsingApiConversations] = useState(false);
+  const [isLoadingConversations, setIsLoadingConversations] = useState(true);
   const { toast } = useToast();
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
@@ -102,28 +107,53 @@ const Index = () => {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { data, error } = await getConversationPage({ pageSize: 50 });
-      if (cancelled || error || data == null) return;
+      setIsLoadingConversations(true);
+      try {
+        const { data, error } = await getConversations({ pageSize: 50 });
+        if (cancelled) return;
 
-      const raw = extractConversationsArray(data);
-      const mapped = raw
-        .map((item) => mapConversationDto(item))
-        .filter((c): c is Conversation => c != null);
+        if (error || data == null) {
+          if (error) {
+            toast({
+              variant: "destructive",
+              title: "Could not load conversations",
+              description: error.message,
+            });
+          }
+          return;
+        }
 
-      if (cancelled || mapped.length === 0) return;
+        if (isConversationsEnvelopeFailed(data)) {
+          toast({
+            variant: "destructive",
+            title: "Could not load conversations",
+            description: readApiEnvelopeMessage(data) ?? "The server reported a failed response.",
+          });
+          return;
+        }
 
-      setConversations(mapped);
-      setUsingApiConversations(true);
-      setSelectedConversationId((prev) => {
-        if (prev && mapped.some((c) => c.id === prev)) return prev;
-        return mapped[0]?.id ?? null;
-      });
+        const raw = extractConversationsArray(data);
+        const mapped = raw
+          .map((item) => mapConversationDto(item))
+          .filter((c): c is Conversation => c != null);
+
+        if (cancelled || mapped.length === 0) return;
+
+        setConversations(mapped);
+        setUsingApiConversations(true);
+        setSelectedConversationId((prev) => {
+          if (prev && mapped.some((c) => c.id === prev)) return prev;
+          return mapped[0]?.id ?? null;
+        });
+      } finally {
+        if (!cancelled) setIsLoadingConversations(false);
+      }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     if (!usingApiConversations || !selectedConversationId) return;
@@ -132,12 +162,22 @@ const Index = () => {
     void (async () => {
       const { data, error } = await getConversationById(selectedConversationId);
       if (cancelled || error || data == null) return;
+      if (isConversationsEnvelopeFailed(data)) return;
+
       const mapped = mapConversationDto(data);
-      if (!mapped) return;
+      if (!mapped || cancelled) return;
+
+      const threadMessages = mapDetailPayloadToMessages(data);
+      if (cancelled) return;
 
       setConversations((prev) =>
         prev.map((c) => (c.id === mapped.id ? { ...c, ...mapped } : c))
       );
+
+      setMessages((prev) => ({
+        ...prev,
+        [mapped.id]: threadMessages,
+      }));
     })();
 
     return () => {
@@ -246,21 +286,33 @@ const Index = () => {
             {/* Conversation List */}
             <div
               className={cn(
-                "flex-shrink-0",
+                "flex-shrink-0 flex flex-col h-full min-h-0",
                 isMobile ? "w-full" : "w-80 lg:w-96",
                 isMobile && mobileView !== "list" && "hidden"
               )}
             >
-              <ConversationList
-                conversations={conversations}
-                selectedId={selectedConversationId}
-                onSelectConversation={handleSelectConversation}
-              />
+              {isLoadingConversations ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin" aria-hidden />
+                  <p className="text-sm text-center">Loading conversations…</p>
+                </div>
+              ) : (
+                <ConversationList
+                  conversations={conversations}
+                  selectedId={selectedConversationId}
+                  onSelectConversation={handleSelectConversation}
+                />
+              )}
             </div>
 
             {/* Chat View */}
-            <div className={cn("flex-1 min-w-0", isMobile && mobileView !== "chat" && "hidden")}>
-              {selectedConversation ? (
+            <div className={cn("flex-1 min-w-0 flex flex-col min-h-0", isMobile && mobileView !== "chat" && "hidden")}>
+              {isLoadingConversations ? (
+                <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-muted-foreground">
+                  <Loader2 className="h-8 w-8 animate-spin" aria-hidden />
+                  <p className="text-sm text-center">Loading conversations…</p>
+                </div>
+              ) : selectedConversation ? (
                 <ChatView
                   customerName={selectedConversation.customerName}
                   customerAvatar={selectedConversation.customerAvatar}
@@ -279,7 +331,9 @@ const Index = () => {
             </div>
 
             {/* Customer Sidebar */}
-            {!isMobile && selectedCustomer && <CustomerSidebar customer={selectedCustomer} />}
+            {!isMobile && !isLoadingConversations && selectedCustomer && (
+              <CustomerSidebar customer={selectedCustomer} />
+            )}
           </div>
         </div>
       </div>

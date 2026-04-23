@@ -35,6 +35,8 @@ async function refreshAccessToken(): Promise<string | null> {
     return null;
   }
 
+  const expiredAccessToken = currentSession.accessToken?.trim() ?? "";
+
   try {
     const response = await axios.post(
       `${baseURL}/api/v1/auth/refreshtoken`,
@@ -45,6 +47,9 @@ async function refreshAccessToken(): Promise<string | null> {
           Accept: "application/json",
           "Content-Type": "application/json",
           Language: "EN",
+          ...(expiredAccessToken
+            ? { Authorization: `Bearer ${expiredAccessToken}` }
+            : {}),
         },
       }
     );

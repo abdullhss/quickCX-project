@@ -17,7 +17,9 @@ export const MessageThread = ({ messages }: MessageThreadProps) => {
   let currentDate = "";
 
   messages.forEach((message) => {
-    const messageDate = message.timestamp.split(" ")[0] || "Today";
+    const messageDate = message.timestamp.includes(" · ")
+      ? message.timestamp.split(" · ")[0]
+      : message.timestamp.split(" ")[0] || "Today";
     if (messageDate !== currentDate) {
       currentDate = messageDate;
       groupedMessages.push({ date: messageDate, messages: [] });

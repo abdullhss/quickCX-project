@@ -12,14 +12,17 @@ import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
+  extractWhatsAppRecipientFromDetail,
   extractConversationsArray,
-  getConversationById,
   getConversations,
+  getConversationMessages,
   isConversationsEnvelopeFailed,
   mapConversationDto,
   mapDetailPayloadToMessages,
   markConversationAsClosed,
   readApiEnvelopeMessage,
+  sendEmailReply,
+  sendWhatsAppMessage,
 } from "@/services/conversation/conversationService";
 
 const Index = () => {
@@ -29,6 +32,9 @@ const Index = () => {
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations);
   const [usingApiConversations, setUsingApiConversations] = useState(false);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [whatsAppRecipientsByConversation, setWhatsAppRecipientsByConversation] = useState<
+    Record<string, string>
+  >({});
   const { toast } = useToast();
   const [isMobile, setIsMobile] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
@@ -45,12 +51,55 @@ const Index = () => {
     ? messages[selectedConversationId] || [] 
     : [];
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string) => {
     if (!selectedConversationId) return;
+    const trimmed = content.trim();
+    if (!trimmed) return;
+
+    if (usingApiConversations && selectedConversation) {
+      if (selectedConversation.channel === "email") {
+        const { error } = await sendEmailReply({
+          conversationId: selectedConversationId,
+          body: trimmed,
+        });
+        if (error) {
+          toast({
+            variant: "destructive",
+            title: "Could not send email reply",
+            description: error.message,
+          });
+          return;
+        }
+      } else {
+        const to = whatsAppRecipientsByConversation[selectedConversationId];
+        if (!to) {
+          toast({
+            variant: "destructive",
+            title: "Could not send WhatsApp message",
+            description:
+              "Recipient number is missing for this conversation. Open another message in this conversation and try again.",
+          });
+          return;
+        }
+
+        const { error } = await sendWhatsAppMessage({
+          to,
+          body: trimmed,
+        });
+        if (error) {
+          toast({
+            variant: "destructive",
+            title: "Could not send WhatsApp message",
+            description: error.message,
+          });
+          return;
+        }
+      }
+    }
 
     const newMessage: Message = {
       id: `m${Date.now()}`,
-      content,
+      content: trimmed,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       isFromCustomer: false,
       status: "sent",
@@ -67,7 +116,7 @@ const Index = () => {
         c.id === selectedConversationId
           ? {
               ...c,
-              lastMessage: content,
+              lastMessage: trimmed,
               timestamp: "Just now",
             }
           : c
@@ -160,23 +209,27 @@ const Index = () => {
 
     let cancelled = false;
     void (async () => {
-      const { data, error } = await getConversationById(selectedConversationId);
+      const { data, error } = await getConversationMessages(selectedConversationId, {
+        pageNumber: 1,
+        pageSize: 50,
+      });
       if (cancelled || error || data == null) return;
       if (isConversationsEnvelopeFailed(data)) return;
 
-      const mapped = mapConversationDto(data);
-      if (!mapped || cancelled) return;
-
       const threadMessages = mapDetailPayloadToMessages(data);
+      const whatsAppRecipient = extractWhatsAppRecipientFromDetail(data);
       if (cancelled) return;
 
-      setConversations((prev) =>
-        prev.map((c) => (c.id === mapped.id ? { ...c, ...mapped } : c))
-      );
+      if (whatsAppRecipient) {
+        setWhatsAppRecipientsByConversation((prev) => ({
+          ...prev,
+          [selectedConversationId]: whatsAppRecipient,
+        }));
+      }
 
       setMessages((prev) => ({
         ...prev,
-        [mapped.id]: threadMessages,
+        [selectedConversationId]: threadMessages,
       }));
     })();
 

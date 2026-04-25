@@ -75,9 +75,18 @@ export const getConversations = async (query: GetConversationsQuery = {}) => {
   }
 };
 
-export const getConversationById = async (conversationId: string) => {
+export const getConversationMessages = async (
+  conversationId: string,
+  query: { pageNumber?: number; pageSize?: number } = {}
+) => {
   try {
-    const response = await api.get(`/api/v1/conversations/${conversationId}`);
+    const params = formDataToParams(
+      buildFormData({
+        pageNumber: query.pageNumber ?? 1,
+        pageSize: query.pageSize ?? 50,
+      })
+    );
+    const response = await api.get(`/api/v1/messages/${conversationId}`, { params });
     return { data: response.data as unknown, error: null as null };
   } catch (err: unknown) {
     return { data: null, error: toApiError(err) };
@@ -87,6 +96,24 @@ export const getConversationById = async (conversationId: string) => {
 export const markConversationAsClosed = async (conversationId: string) => {
   try {
     const response = await api.post(`/api/v1/conversations/MarkAsClosed/${conversationId}`);
+    return { data: response.data as unknown, error: null as null };
+  } catch (err: unknown) {
+    return { data: null, error: toApiError(err) };
+  }
+};
+
+export const sendEmailReply = async (payload: { conversationId: string; body: string }) => {
+  try {
+    const response = await api.post("/api/v1/email/sendreply", payload);
+    return { data: response.data as unknown, error: null as null };
+  } catch (err: unknown) {
+    return { data: null, error: toApiError(err) };
+  }
+};
+
+export const sendWhatsAppMessage = async (payload: { to: string; body: string }) => {
+  try {
+    const response = await api.post("/api/v1/whatsapp/send", payload);
     return { data: response.data as unknown, error: null as null };
   } catch (err: unknown) {
     return { data: null, error: toApiError(err) };
@@ -247,6 +274,103 @@ function unwrapConversationDetailRecord(payload: unknown): Record<string, unknow
   return null;
 }
 
+function extractMessageRowsFromPayload(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object") return [];
+  const p = payload as Record<string, unknown>;
+
+  const data = p.Data ?? p.data;
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    const d = data as Record<string, unknown>;
+    const nestedArrayCandidates = [d.items, d.Items, d.messages, d.Messages, d.results, d.Results];
+    for (const candidate of nestedArrayCandidates) {
+      if (Array.isArray(candidate)) return candidate;
+    }
+  }
+
+  const arrayCandidates = [p.items, p.Items, p.messages, p.Messages, p.results, p.Results];
+  for (const candidate of arrayCandidates) {
+    if (Array.isArray(candidate)) return candidate;
+  }
+
+  const detail = unwrapConversationDetailRecord(payload);
+  if (!detail) return [];
+  const recent = detail.RecentMessages ?? detail.recentMessages;
+  return Array.isArray(recent) ? recent : [];
+}
+
+function readNestedValue(obj: Record<string, unknown>, path: string[]): unknown {
+  let current: unknown = obj;
+  for (const key of path) {
+    if (!current || typeof current !== "object" || Array.isArray(current)) return undefined;
+    current = (current as Record<string, unknown>)[key];
+  }
+  return current;
+}
+
+/** Best-effort extraction for WhatsApp recipient identifier from conversation detail payload. */
+export function extractWhatsAppRecipientFromDetail(payload: unknown): string | undefined {
+  const rows = extractMessageRowsFromPayload(payload);
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i];
+    if (!row || typeof row !== "object") continue;
+    const rowObj = row as Record<string, unknown>;
+    const rowTo = readString(
+      rowObj,
+      "To",
+      "to",
+      "Recipient",
+      "recipient",
+      "RecipientNumber",
+      "recipientNumber",
+      "PhoneNumber",
+      "phoneNumber",
+      "WaId",
+      "waId"
+    );
+    if (rowTo?.trim()) return rowTo.trim();
+  }
+
+  const detail = unwrapConversationDetailRecord(payload);
+  if (!detail) return undefined;
+
+  const directCandidates = [
+    ["To"],
+    ["to"],
+    ["Recipient"],
+    ["recipient"],
+    ["RecipientNumber"],
+    ["recipientNumber"],
+    ["PhoneNumber"],
+    ["phoneNumber"],
+    ["CustomerPhoneNumber"],
+    ["customerPhoneNumber"],
+    ["WaId"],
+    ["waId"],
+  ];
+
+  for (const path of directCandidates) {
+    const value = readNestedValue(detail, path);
+    if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  }
+
+  const nestedCandidates = [
+    ["Customer", "PhoneNumber"],
+    ["customer", "PhoneNumber"],
+    ["customer", "phoneNumber"],
+    ["Customer", "WaId"],
+    ["customer", "waId"],
+  ];
+
+  for (const path of nestedCandidates) {
+    const value = readNestedValue(detail, path);
+    if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  }
+
+  return undefined;
+}
+
 function formatMessageSentAt(raw: string | undefined): string {
   if (!raw?.trim()) return "—";
   const d = Date.parse(raw);
@@ -258,7 +382,17 @@ function formatMessageSentAt(raw: string | undefined): string {
 
 function recentMessageRowTime(row: unknown): number {
   if (!row || typeof row !== "object") return 0;
-  const s = readString(row as Record<string, unknown>, "SentAt", "sentAt", "CreatedAt", "createdAt");
+  const s = readString(
+    row as Record<string, unknown>,
+    "SentAt",
+    "sentAt",
+    "CreatedAt",
+    "createdAt",
+    "Timestamp",
+    "timestamp",
+    "Date",
+    "date"
+  );
   const t = s ? Date.parse(s) : NaN;
   return Number.isNaN(t) ? 0 : t;
 }
@@ -267,12 +401,11 @@ function recentMessageRowTime(row: unknown): number {
 export function mapRecentMessageDto(raw: unknown): Message | null {
   if (!raw || typeof raw !== "object") return null;
   const row = raw as Record<string, unknown>;
-  const id = readString(row, "Id", "id");
-  if (!id) return null;
+  const id = readString(row, "Id", "id") ?? `msg-${Math.random().toString(36).slice(2, 10)}`;
 
   const contentRaw = readString(row, "Content", "content", "body", "Body") ?? "";
   const content = normalizeEmailBodyForDisplay(contentRaw);
-  const sentAt = readString(row, "SentAt", "sentAt", "CreatedAt", "createdAt");
+  const sentAt = readString(row, "SentAt", "sentAt", "CreatedAt", "createdAt", "Timestamp", "timestamp");
   const type = readString(row, "Type", "type");
   const explicit = row.IsFromCustomer ?? row.isFromCustomer;
   let isFromCustomer = true;
@@ -294,9 +427,7 @@ export function mapRecentMessageDto(raw: unknown): Message | null {
 
 /** All messages in `Data.RecentMessages` from GET `/api/v1/conversations/{id}`, oldest first. */
 export function mapDetailPayloadToMessages(payload: unknown): Message[] {
-  const detail = unwrapConversationDetailRecord(payload);
-  if (!detail) return [];
-  const raw = detail.RecentMessages ?? detail.recentMessages;
+  const raw = extractMessageRowsFromPayload(payload);
   if (!Array.isArray(raw)) return [];
 
   const sorted = [...raw].sort((a, b) => recentMessageRowTime(a) - recentMessageRowTime(b));

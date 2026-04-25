@@ -123,6 +123,7 @@
     "subtitle": "اربط منصات المراسلة الخاصة بك لاستقبال رسائل العملاء والرد عليها",
     "pageTitle": "إعدادات القنوات",
     "pageDescription": "إدارة قنوات الاتصال الخاصة بك",
+    "loading": "جاري تحميل القنوات…",
     "connected": "متصل",
     "pending": "قيد الانتظار",
     "total": "إجمالي القنوات",
@@ -196,7 +197,13 @@
       "imapUseSsl": "استخدام SSL لـ IMAP",
       "smtpUseSsl": "استخدام SSL لـ SMTP",
       "deleteSuccess": "تمت إزالة القناة",
-      "deleteError": "تعذر إزالة القناة"
+      "deleteError": "تعذر إزالة القناة",
+      "removeChannel": "إزالة القناة",
+      "removeChannelAria": "إزالة هذه القناة",
+      "removeChannelConfirmTitle": "إزالة هذه القناة؟",
+      "removeChannelConfirmDescription": "سيتم فصل {{identifier}}. يمكنك إعادة ربط القناة لاحقًا.",
+      "removeChannelConfirm": "إزالة",
+      "removingChannel": "جاري الإزالة…"
     }
   },
   "settings": {

@@ -3,7 +3,7 @@ import { LucideIcon, Plus, Trash2, CheckCircle, Clock, AlertCircle } from "lucid
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { ChannelConnection } from "@/pages/ChannelSettings";
+import type { ChannelConnection } from "@/services/channel/channelService";
 
 interface ChannelCardProps {
   channel: "whatsapp" | "email";
@@ -109,12 +109,15 @@ export const ChannelCard = ({
                 <div className="flex items-center gap-3">
                   {getStatusBadge(connection.status)}
                   <Button
+                    type="button"
                     variant="ghost"
                     size="icon"
                     className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    aria-label={t("channels.setup.removeChannelAria")}
+                    title={t("channels.setup.removeChannel")}
                     onClick={() => onRemove(connection.id)}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4" aria-hidden />
                   </Button>
                 </div>
               </div>

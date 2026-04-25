@@ -123,6 +123,7 @@
     "subtitle": "Connect your messaging platforms to receive and respond to customer messages",
     "pageTitle": "Channel Settings",
     "pageDescription": "Manage your communication channels",
+    "loading": "Loading channels…",
     "connected": "Connected",
     "pending": "Pending",
     "total": "Total Channels",
@@ -196,7 +197,13 @@
       "imapUseSsl": "Use SSL for IMAP",
       "smtpUseSsl": "Use SSL for SMTP",
       "deleteSuccess": "Channel removed",
-      "deleteError": "Could not remove channel"
+      "deleteError": "Could not remove channel",
+      "removeChannel": "Remove channel",
+      "removeChannelAria": "Remove this channel",
+      "removeChannelConfirmTitle": "Remove this channel?",
+      "removeChannelConfirmDescription": "This will disconnect {{identifier}}. You can add the channel again later.",
+      "removeChannelConfirm": "Remove",
+      "removingChannel": "Removing…"
     }
   },
   "settings": {

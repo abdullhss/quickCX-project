@@ -21,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { MessageCircle, Loader2 } from "lucide-react";
-import { ChannelConnection } from "@/pages/ChannelSettings";
+import type { ChannelConnection } from "@/services/channel/channelService";
 import { toast } from "sonner";
 import {
   createWhatsAppChannel,

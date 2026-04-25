@@ -203,7 +203,7 @@
 
   .card-premium::before {
     content: '';
-    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    @apply pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300;
     background: var(--gradient-glow);
   }
 
@@ -218,7 +218,7 @@
 
   .gradient-border::before {
     content: '';
-    @apply absolute inset-0 rounded-inherit p-[1px];
+    @apply pointer-events-none absolute inset-0 rounded-inherit p-[1px];
     background: var(--gradient-primary);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -256,7 +256,7 @@
 
   .stat-card::before {
     content: '';
-    @apply absolute top-0 left-0 right-0 h-1 opacity-0 transition-opacity;
+    @apply pointer-events-none absolute top-0 left-0 right-0 h-1 opacity-0 transition-opacity;
     background: var(--gradient-primary);
   }
 
@@ -298,7 +298,7 @@
 
   .nav-item-active::before {
     content: '';
-    @apply absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-primary;
+    @apply pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-primary;
   }
 }
 
@@ -347,7 +347,7 @@
 
   .glow-primary::before {
     content: '';
-    @apply absolute inset-0 rounded-inherit opacity-40 blur-xl -z-10;
+    @apply pointer-events-none absolute inset-0 rounded-inherit opacity-40 blur-xl -z-10;
     background: var(--gradient-primary);
   }
 

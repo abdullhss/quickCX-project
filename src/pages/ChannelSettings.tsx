@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Helmet } from "react-helmet-async";
 import { SidebarNav } from "@/components/layout/SidebarNav";
@@ -6,44 +6,113 @@ import { ChannelCard } from "@/components/channels/ChannelCard";
 import { WhatsAppSetupDialog } from "@/components/channels/WhatsAppSetupDialog";
 import { EmailSetupDialog } from "@/components/channels/EmailSetupDialog";
 import { LanguageThemeToggle } from "@/components/LanguageThemeToggle";
-import { MessageCircle, Mail, CheckCircle2, Clock, Activity } from "lucide-react";
+import { MessageCircle, Mail, CheckCircle2, Clock, Activity, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { deleteChannel } from "@/services/channel/channelService";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import type { ChannelConnection } from "@/services/channel/channelService";
+import {
+  deleteChannel,
+  getChannels,
+  isChannelsEnvelopeFailed,
+  parseChannelsResponsePayload,
+  readChannelsEnvelopeMessage,
+} from "@/services/channel/channelService";
 
-export interface ChannelConnection {
-  id: string;
-  channel: "whatsapp" | "email";
-  name: string;
-  identifier: string;
-  status: "connected" | "disconnected" | "pending";
-  connectedAt?: string;
-}
+export type { ChannelConnection } from "@/services/channel/channelService";
 
 const ChannelSettings = () => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("settings");
   const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
-  
+
   const [connections, setConnections] = useState<ChannelConnection[]>([]);
+  const [isLoadingChannels, setIsLoadingChannels] = useState(true);
+  const [removeChannelId, setRemoveChannelId] = useState<string | null>(null);
+  const [isRemovingChannel, setIsRemovingChannel] = useState(false);
 
-  const getConnectionsByChannel = (channel: ChannelConnection["channel"]) => {
-    return connections.filter(c => c.channel === channel);
-  };
-
-  const handleAddConnection = (connection: ChannelConnection) => {
-    setConnections(prev => [...prev, connection]);
-  };
-
-  const handleRemoveConnection = async (id: string) => {
-    const { error } = await deleteChannel(id);
+  const refreshChannels = useCallback(async () => {
+    const { data, error } = await getChannels();
     if (error) {
-      toast.error(error.message || t("channels.setup.deleteError"));
+      toast.error(error.message || t("channels.setup.error"));
       return;
     }
-    setConnections((prev) => prev.filter((c) => c.id !== id));
-    toast.success(t("channels.setup.deleteSuccess"));
+    if (data != null && isChannelsEnvelopeFailed(data)) {
+      toast.error(
+        readChannelsEnvelopeMessage(data) ?? t("channels.setup.error")
+      );
+      return;
+    }
+    if (data != null) {
+      setConnections(parseChannelsResponsePayload(data));
+    }
+  }, [t]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setIsLoadingChannels(true);
+      await refreshChannels();
+      if (!cancelled) setIsLoadingChannels(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshChannels]);
+
+  const getConnectionsByChannel = (channel: ChannelConnection["channel"]) => {
+    return connections.filter((c) => c.channel === channel);
   };
+
+  const handleAddConnection = () => {
+    void refreshChannels();
+  };
+
+  /** DELETE /api/v1/channel/{channelId} — returns true when the channel was removed. */
+  const removeChannelById = async (id: string): Promise<boolean> => {
+    const { data, error } = await deleteChannel(id);
+    if (error) {
+      toast.error(error.message || t("channels.setup.deleteError"));
+      return false;
+    }
+    if (data != null && typeof data === "object" && isChannelsEnvelopeFailed(data)) {
+      toast.error(
+        readChannelsEnvelopeMessage(data) ?? t("channels.setup.deleteError")
+      );
+      return false;
+    }
+    await refreshChannels();
+    toast.success(t("channels.setup.deleteSuccess"));
+    return true;
+  };
+
+  const handleRequestRemoveChannel = (channelId: string) => {
+    setRemoveChannelId(channelId);
+  };
+
+  const handleConfirmRemoveChannel = async () => {
+    if (!removeChannelId) return;
+    setIsRemovingChannel(true);
+    try {
+      const ok = await removeChannelById(removeChannelId);
+      if (ok) setRemoveChannelId(null);
+    } finally {
+      setIsRemovingChannel(false);
+    }
+  };
+
+  const removeChannelPreview = removeChannelId
+    ? connections.find((c) => c.id === removeChannelId)
+    : undefined;
 
   const whatsappConnections = getConnectionsByChannel("whatsapp");
   const emailConnections = getConnectionsByChannel("email");
@@ -100,6 +169,12 @@ const ChannelSettings = () => {
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-8">
+            {isLoadingChannels ? (
+              <div className="max-w-5xl mx-auto flex flex-col items-center justify-center gap-3 py-24 text-muted-foreground">
+                <Loader2 className="h-10 w-10 animate-spin" aria-hidden />
+                <p className="text-sm">{t("channels.loading")}</p>
+              </div>
+            ) : (
             <div className="max-w-5xl mx-auto space-y-8">
               {/* Stats Overview */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -131,7 +206,7 @@ const ChannelSettings = () => {
                   description={t("channels.whatsapp.description")}
                   connections={whatsappConnections}
                   onConnect={() => setWhatsappOpen(true)}
-                  onRemove={handleRemoveConnection}
+                  onRemove={handleRequestRemoveChannel}
                   color="bg-[#25D366]"
                 />
 
@@ -142,7 +217,7 @@ const ChannelSettings = () => {
                   description={t("channels.email.description")}
                   connections={emailConnections}
                   onConnect={() => setEmailOpen(true)}
-                  onRemove={handleRemoveConnection}
+                  onRemove={handleRequestRemoveChannel}
                   color="bg-channel-email"
                 />
               </div>
@@ -177,6 +252,7 @@ const ChannelSettings = () => {
                 </div>
               </div>
             </div>
+            )}
           </div>
         </div>
       </div>
@@ -191,6 +267,44 @@ const ChannelSettings = () => {
         onOpenChange={setEmailOpen}
         onConnect={handleAddConnection}
       />
+
+      <AlertDialog
+        open={removeChannelId !== null}
+        onOpenChange={(open) => {
+          if (!open && !isRemovingChannel) setRemoveChannelId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("channels.setup.removeChannelConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("channels.setup.removeChannelConfirmDescription", {
+                identifier: removeChannelPreview?.identifier ?? removeChannelId ?? "",
+              })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRemovingChannel}>
+              {t("channels.setup.cancel")}
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isRemovingChannel}
+              onClick={() => void handleConfirmRemoveChannel()}
+            >
+              {isRemovingChannel ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                  {t("channels.setup.removingChannel")}
+                </>
+              ) : (
+                t("channels.setup.removeChannelConfirm")
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

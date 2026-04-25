@@ -6,8 +6,6 @@ type ApiError = {
 };
 
 export type CreateWhatsAppChannelPayload = {
-  type: number;
-  name: string;
   phoneNumberId: string;
   whatsAppBusinessAccountId: string;
   accessToken: string;

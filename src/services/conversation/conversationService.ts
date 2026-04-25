@@ -93,9 +93,17 @@ export const getConversationMessages = async (
   }
 };
 
-export const markConversationAsClosed = async (conversationId: string) => {
+/** PUT /api/v1/conversations/{conversationId}/status — body uses Open / Closed */
+export const updateConversationStatus = async (
+  conversationId: string,
+  uiStatus: ConversationStatus
+) => {
+  const status = uiStatus === "open" ? "Open" : "Closed";
   try {
-    const response = await api.post(`/api/v1/conversations/MarkAsClosed/${conversationId}`);
+    const response = await api.put(`/api/v1/conversations/${conversationId}/status`, {
+      conversationId,
+      status,
+    });
     return { data: response.data as unknown, error: null as null };
   } catch (err: unknown) {
     return { data: null, error: toApiError(err) };

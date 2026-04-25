@@ -19,7 +19,7 @@ import {
   isConversationsEnvelopeFailed,
   mapConversationDto,
   mapDetailPayloadToMessages,
-  markConversationAsClosed,
+  updateConversationStatus,
   readApiEnvelopeMessage,
   sendEmailReply,
   sendWhatsAppMessage,
@@ -126,12 +126,15 @@ const Index = () => {
 
   const handleStatusChange = useCallback(
     async (conversationId: string, newStatus: ConversationStatus) => {
-      if (newStatus === "closed" && usingApiConversations) {
-        const { error } = await markConversationAsClosed(conversationId);
+      if (usingApiConversations) {
+        const { error } = await updateConversationStatus(conversationId, newStatus);
         if (error) {
           toast({
             variant: "destructive",
-            title: "Could not close conversation",
+            title:
+              newStatus === "closed"
+                ? "Could not close conversation"
+                : "Could not reopen conversation",
             description: error.message,
           });
           return;

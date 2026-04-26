@@ -72,9 +72,9 @@ export const ConversationItem = ({ conversation, isSelected, onClick }: Conversa
             </h4>
             {conversation.status === "closed" ? (
               <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-            ) : (
+            ) : conversation.unreadCount > 0 ? (
               <Circle className="h-3 w-3 text-success fill-success flex-shrink-0" />
-            )}
+            ) : null}
           </div>
           <span className="text-xs text-muted-foreground flex-shrink-0">
             {conversation.timestamp}

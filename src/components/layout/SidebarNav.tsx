@@ -23,9 +23,11 @@ import { toast } from "sonner";
 interface SidebarNavProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  /** Sum of unread counts for inbox; when set and > 0, shown on Inbox nav */
+  inboxUnreadTotal?: number;
 }
 
-export const SidebarNav = ({ activeTab, onTabChange }: SidebarNavProps) => {
+export const SidebarNav = ({ activeTab, onTabChange, inboxUnreadTotal }: SidebarNavProps) => {
   const { t, i18n } = useTranslation();
   const { profile, signOut , loading } = useAuth();
   console.log(profile);
@@ -35,7 +37,7 @@ export const SidebarNav = ({ activeTab, onTabChange }: SidebarNavProps) => {
   const location = useLocation();
 
   const mainNavItems = [
-    { id: "inbox", label: t("nav.inbox"), icon: Inbox, badge: 24 },
+    { id: "inbox", label: t("nav.inbox"), icon: Inbox },
     { id: "analytics", label: t("nav.analytics"), icon: BarChart3 },
     { id: "customers", label: t("nav.customers"), icon: Users },
     { id: "automation", label: t("nav.automation"), icon: Zap },
@@ -110,11 +112,13 @@ export const SidebarNav = ({ activeTab, onTabChange }: SidebarNavProps) => {
                 isActive && "text-primary"
               )} />
               <span className="hidden lg:block font-medium">{item.label}</span>
-              {item.badge && (
-                <span className="hidden lg:flex ms-auto items-center justify-center min-w-5 h-5 px-1.5 text-xs font-bold rounded-full bg-primary text-primary-foreground shadow-sm">
-                  {item.badge}
-                </span>
-              )}
+              {item.id === "inbox" &&
+                inboxUnreadTotal != null &&
+                inboxUnreadTotal > 0 && (
+                  <span className="hidden lg:flex ms-auto items-center justify-center min-w-5 h-5 px-1.5 text-xs font-bold rounded-full bg-primary text-primary-foreground shadow-sm">
+                    {inboxUnreadTotal > 99 ? "99+" : inboxUnreadTotal}
+                  </span>
+                )}
             </button>
           );
         })}

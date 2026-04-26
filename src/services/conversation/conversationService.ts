@@ -39,7 +39,7 @@ function formDataToParams(formData: FormData): URLSearchParams {
   return params;
 }
 
-/** GET /api/v2/conversations — list */
+/** GET /api/v3/conversations — list */
 export type GetConversationsQuery = {
   channelType?: string;
   status?: string;
@@ -68,7 +68,7 @@ export const getConversations = async (query: GetConversationsQuery = {}) => {
       includeStatistics: query.includeStatistics ?? false,
     });
     const params = formDataToParams(formData);
-    const response = await api.get("/api/v2/conversations", { params });
+    const response = await api.get("/api/v3/conversations", { params });
     return { data: response.data as unknown, error: null as null };
   } catch (err: unknown) {
     return { data: null, error: toApiError(err) };
@@ -486,6 +486,8 @@ export function mapConversationDto(raw: unknown): Conversation | null {
       : undefined) ??
     readString(
       o,
+      "CustomerDisplayName",
+      "customerDisplayName",
       "customerName",
       "CustomerName",
       "Subject",
@@ -518,7 +520,7 @@ export function mapConversationDto(raw: unknown): Conversation | null {
         : Number(o.unreadCount ?? o.UnreadCount ?? 0) || 0;
 
   const avatar =
-    readString(o, "customerAvatar", "avatarUrl", "profileImageUrl") ??
+    readString(o, "CustomerPhoto", "customerPhoto", "customerAvatar", "avatarUrl", "profileImageUrl") ??
     (customer
       ? readString(customer, "AvatarUrl", "avatarUrl", "profileImageUrl", "photoUrl")
       : undefined);

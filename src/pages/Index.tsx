@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { SidebarNav } from "@/components/layout/SidebarNav";
 import { ConversationList } from "@/components/inbox/ConversationList";
 import { ChatView, EmptyChatView } from "@/components/inbox/ChatView";
@@ -41,6 +41,11 @@ const Index = () => {
 
   const selectedConversation = conversations.find(
     (c) => c.id === selectedConversationId
+  );
+
+  const inboxUnreadTotal = useMemo(
+    () => conversations.reduce((sum, c) => sum + c.unreadCount, 0),
+    [conversations]
   );
   
   const selectedCustomer = selectedConversationId 
@@ -330,7 +335,11 @@ const Index = () => {
 
       <div className="flex h-screen bg-background overflow-hidden">
         {/* Sidebar Navigation */}
-        <SidebarNav activeTab={activeTab} onTabChange={setActiveTab} />
+        <SidebarNav
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          inboxUnreadTotal={inboxUnreadTotal}
+        />
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0">
